@@ -2,14 +2,15 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../models/post_model.dart';
 import '../../theme/colors.dart';
+import 'package:etki_social_app/widgets/post_card.dart';
 
 class MissionDetailsScreen extends StatefulWidget {
   final Post post;
 
   const MissionDetailsScreen({
-    Key? key,
+    super.key,
     required this.post,
-  }) : super(key: key);
+  });
 
   @override
   State<MissionDetailsScreen> createState() => _MissionDetailsScreenState();
@@ -118,24 +119,14 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> with Single
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
+        title: const Text('Görev Detayları'),
+        backgroundColor: Colors.white,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
-          'Görev Detayları',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        backgroundColor: AppColors.primary,
         actions: [
           IconButton(
-            icon: const Icon(
-              Icons.share,
-              color: Colors.white,
-            ),
+            icon: const Icon(Icons.share_outlined),
             onPressed: () {
               // TODO: Implement share functionality
             },
@@ -145,108 +136,236 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> with Single
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Header Section with Mission Title and Description
+            // Mission Card
             Container(
-              width: double.infinity,
-              decoration: const BoxDecoration(
+              margin: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
-                ),
+                borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 5,
-                    offset: Offset(0, 2),
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
-              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    widget.post.missionTitle ?? 'Görev Başlığı',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
+                  // Mission Header
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.assignment,
+                            color: AppColors.primary,
+                            size: 24,
+                          ),
                         ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    widget.post.missionDescription ?? widget.post.content,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Colors.grey[700],
-                          height: 1.5,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.post.missionTitle!,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${widget.post.missionParticipants?.length ?? 0} Katılımcı',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Mission Stats
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _buildStatCard(
-                      'Ödül',
-                      '${widget.post.missionReward ?? 100}\nCoin',
-                      _buildCoinIcon(),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: _buildStatCard(
-                      'Katılımcı',
-                      '${widget.post.maxParticipants ?? "∞"}\nKişi',
-                      const Icon(Icons.group, color: AppColors.primary, size: 28),
-                    ),
-                  ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: _buildStatCard(
-                      'Süre',
-                      widget.post.missionDeadline != null
-                          ? _formatRemainingTime()
-                          : '∞\nGün',
-                      const Icon(Icons.timer, color: AppColors.primary, size: 28),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Mission Requirements
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Card(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                elevation: 2,
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Görev Gereksinimleri',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        ),
+                  
+                  // Mission Description
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      widget.post.content,
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.grey[800],
+                        height: 1.5,
                       ),
-                      const SizedBox(height: 15),
-                      _buildRequirementItem('Görevi zamanında tamamla'),
-                      _buildRequirementItem('Görev kanıtı olarak fotoğraf yükle'),
-                      _buildRequirementItem('Görev açıklamasını detaylı yaz'),
-                    ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Mission Details
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: const BorderRadius.vertical(
+                        bottom: Radius.circular(20),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildDetailItem(
+                          icon: Icons.access_time,
+                          label: 'Son Tarih',
+                          value: _formatDeadline(widget.post.missionDeadline!),
+                        ),
+                        _buildDetailItem(
+                          icon: Icons.group,
+                          label: 'Katılımcı',
+                          value: '${widget.post.missionParticipants?.length ?? 0}/${widget.post.maxParticipants ?? "∞"}',
+                        ),
+                        _buildDetailItem(
+                          icon: Icons.monetization_on,
+                          label: 'Ödül',
+                          value: '${widget.post.missionReward ?? 100}',
+                          isCoin: true,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Participants Section
+            if ((widget.post.missionParticipants?.length ?? 0) > 0) ...[
+              Container(
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 20,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Katılımcılar',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 60,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: widget.post.missionParticipants!.length,
+                        itemBuilder: (context, index) {
+                          final participant = widget.post.missionParticipants![index];
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: Column(
+                              children: [
+                                Stack(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 20,
+                                      backgroundColor: _getStatusColor(participant.status),
+                                      child: Text(
+                                        (participant.username ?? participant.userId)[0].toUpperCase(),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      right: 0,
+                                      bottom: 0,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          shape: BoxShape.circle,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(0.1),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Icon(
+                                          Icons.circle,
+                                          size: 8,
+                                          color: _getStatusColor(participant.status),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  participant.username ?? participant.userId,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            
+            // Participate Button
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    // TODO: Implement mission participation
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    'Göreve Katıl',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
@@ -254,122 +373,86 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> with Single
           ],
         ),
       ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.2),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            ),
-          ],
+    );
+  }
+
+  Widget _buildDetailItem({
+    required IconData icon,
+    required String label,
+    required String value,
+    bool isCoin = false,
+  }) {
+    return Column(
+      children: [
+        Icon(
+          icon,
+          size: 24,
+          color: isCoin ? Colors.amber : Colors.grey[600],
         ),
-        child: ElevatedButton(
-          onPressed: () {
-            // TODO: Implement join mission functionality
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            elevation: 0,
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[600],
           ),
-          child: const Text(
-            'Göreve Katıl',
-            style: TextStyle(
+        ),
+        const SizedBox(height: 4),
+        if (isCoin)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildCoinIcon(),
+              const SizedBox(width: 4),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.amber,
+                ),
+              ),
+            ],
+          )
+        else
+          Text(
+            value,
+            style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
           ),
-        ),
-      ),
+      ],
     );
   }
 
-  Widget _buildStatCard(String title, String value, Widget icon) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          icon,
-          const SizedBox(height: 6),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              height: 1.1,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRequirementItem(String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.check_circle,
-            color: AppColors.primary,
-            size: 20,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(fontSize: 14),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatRemainingTime() {
-    if (widget.post.missionDeadline == null) return '∞\nGün';
-    
-    final remaining = widget.post.missionDeadline!.difference(DateTime.now());
-    if (remaining.isNegative) return 'Süresi\nDoldu';
-    
-    if (remaining.inDays > 0) {
-      return '${remaining.inDays}\nGün';
-    } else if (remaining.inHours > 0) {
-      return '${remaining.inHours}\nSaat';
-    } else {
-      return '${remaining.inMinutes}\nDakika';
+  Color _getStatusColor(MissionStatus status) {
+    switch (status) {
+      case MissionStatus.pending:
+        return Colors.grey;
+      case MissionStatus.accepted:
+        return Colors.blue;
+      case MissionStatus.inProgress:
+        return Colors.orange;
+      case MissionStatus.submitted:
+        return Colors.purple;
+      case MissionStatus.completed:
+        return Colors.green;
+      case MissionStatus.rejected:
+        return Colors.red;
     }
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
+  String _formatDeadline(DateTime deadline) {
+    final remaining = deadline.difference(DateTime.now());
+    if (remaining.isNegative) return 'Süresi doldu';
+    
+    if (remaining.inDays > 0) {
+      return '${remaining.inDays}g';
+    } else if (remaining.inHours > 0) {
+      return '${remaining.inHours}s';
+    } else {
+      return '${remaining.inMinutes}d';
+    }
   }
 } 

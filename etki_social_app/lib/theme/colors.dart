@@ -12,9 +12,9 @@ class AppColors {
 
   // Story gradient colors
   static const storyGradient = [
-    Color(0xFF6C63FF),
-    Color(0xFF03DAC6),
-    Color(0xFFFF6B6B),
-    Color(0xFF6C63FF),
+    Color(0xFF6C63FF), // Primary purple
+    Color(0xFF9D4EDD), // Vibrant purple
+    Color(0xFFE63946), // Coral red
+    Color(0xFF6C63FF), // Back to primary purple
   ];
 } 

@@ -4,12 +4,10 @@ import 'story_circle.dart';
 
 class StoryList extends StatelessWidget {
   final List<Story> stories;
-  final Function(Story)? onStoryTap;
 
   const StoryList({
     super.key,
     required this.stories,
-    this.onStoryTap,
   });
 
   @override
@@ -31,7 +29,7 @@ class StoryList extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: StoryCircle(
               story: story,
-              onTap: () => onStoryTap?.call(story),
+              allStories: stories,
             ),
           );
         },

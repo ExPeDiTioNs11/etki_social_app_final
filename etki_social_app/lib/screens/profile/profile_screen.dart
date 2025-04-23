@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:etki_social_app/constants/app_colors.dart';
 import 'package:etki_social_app/models/post_model.dart';
 import 'package:etki_social_app/widgets/post_card.dart';
+import '../settings/settings_screen.dart';
+import 'followers_list_modal.dart';
+import 'following_list_modal.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -104,37 +107,26 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        OutlinedButton(
-                          onPressed: () {},
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            side: BorderSide(color: AppColors.primary),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.edit_outlined,
-                                size: 14,
+                        Row(
+                          children: [
+                            IconButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const SettingsScreen(),
+                                  ),
+                                );
+                              },
+                              icon: Icon(
+                                Icons.settings_outlined,
                                 color: AppColors.primary,
+                                size: 20,
                               ),
-                              const SizedBox(width: 3),
-                              Text(
-                                'Düzenle',
-                                style: TextStyle(
-                                  color: AppColors.primary,
-                                  fontSize: 12,
-                                  height: 1,
-                                ),
-                              ),
-                            ],
-                          ),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -168,27 +160,20 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                       ],
                     ),
                     const SizedBox(height: 12),
+                    // Profile Stats
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
+                        // Followers
                         InkWell(
-                          onTap: () {},
-                          child: Row(
-                            children: [
-                              Text(
-                                '128',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Takip Edilen',
-                                style: TextStyle(color: Colors.grey[600]),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        InkWell(
-                          onTap: () {},
+                          onTap: () {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (context) => const FollowersListModal(),
+                            );
+                          },
                           child: Row(
                             children: [
                               Text(
@@ -202,6 +187,63 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                               ),
                             ],
                           ),
+                        ),
+                        const SizedBox(width: 24),
+                        // Following
+                        InkWell(
+                          onTap: () {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (context) => const FollowingListModal(),
+                            );
+                          },
+                          child: Row(
+                            children: [
+                              Text(
+                                '128',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Takip',
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        // Shared Missions
+                        Row(
+                          children: [
+                            Text(
+                              '24',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.assignment_outlined,
+                              size: 16,
+                              color: Colors.grey[600],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(width: 24),
+                        // Completed Missions
+                        Row(
+                          children: [
+                            Text(
+                              '12',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.check_circle_outline,
+                              size: 16,
+                              color: Colors.grey[600],
+                            ),
+                          ],
                         ),
                       ],
                     ),

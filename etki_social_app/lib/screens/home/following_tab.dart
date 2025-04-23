@@ -10,7 +10,6 @@ class FollowingTab extends StatelessWidget {
   final Function(Post)? onLike;
   final Function(Post)? onComment;
   final Function(Post)? onShare;
-  final Function(Story)? onStoryTap;
 
   const FollowingTab({
     super.key,
@@ -19,7 +18,6 @@ class FollowingTab extends StatelessWidget {
     this.onLike,
     this.onComment,
     this.onShare,
-    this.onStoryTap,
   });
 
   @override
@@ -33,7 +31,6 @@ class FollowingTab extends StatelessWidget {
           SliverToBoxAdapter(
             child: StoryList(
               stories: stories,
-              onStoryTap: onStoryTap,
             ),
           ),
           SliverList(

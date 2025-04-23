@@ -26,36 +26,85 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   
   // Post lists for different tabs
-  final List<Post> _explorePosts = List.generate(10, (index) => Post(
-    id: 'explore_$index',
-    userId: 'user_$index',
-    content: 'Keşfet tabındaki örnek gönderi $index',
-    type: PostType.text,
-    createdAt: DateTime.now().subtract(Duration(hours: index)),
-    isVerified: index % 3 == 0, // Her 3. kullanıcı onaylı
-    comments: [
-      Comment(
-        id: 'comment_${index}_1',
-        userId: 'commenter_1',
-        username: 'Ahmet Yılmaz',
-        content: 'Harika bir gönderi!',
-        createdAt: DateTime.now().subtract(Duration(minutes: 30)),
-        isVerified: true, // Onaylı yorumcu
+  final List<Post> _explorePosts = List.generate(10, (index) {
+    // Her 3. gönderi bir görev olacak
+    if (index % 3 == 0) {
+      return Post(
+        id: 'mission_$index',
+        userId: 'mission_creator_$index',
+        content: 'Bu görev için detaylı açıklama burada yer alacak.',
+        type: PostType.mission,
+        missionTitle: 'Görev ${index + 1}',
+        missionDescription: 'Bu görevi tamamlamak için yapmanız gerekenler...',
+        missionReward: (index + 1) * 100, // Her görev için farklı ödül
+        missionDeadline: DateTime.now().add(Duration(days: index + 1)), // Her görev için farklı son tarih
+        missionParticipants: List.generate(
+          index % 4, // Her görev için farklı sayıda katılımcı
+          (i) => MissionParticipant(
+            userId: 'participant_$i',
+            username: 'Katılımcı $i',
+            status: MissionStatus.values[i % MissionStatus.values.length],
+          ),
+        ),
+        maxParticipants: 10,
+        createdAt: DateTime.now().subtract(Duration(hours: index)),
+        isVerified: true,
+        comments: [
+          Comment(
+            id: 'comment_${index}_1',
+            userId: 'commenter_1',
+            username: 'Ahmet Yılmaz',
+            content: 'Bu görevi tamamlamak için yardıma ihtiyacım var.',
+            createdAt: DateTime.now().subtract(Duration(minutes: 30)),
+            isVerified: true,
+            likes: [],
+            replies: [],
+          ),
+          Comment(
+            id: 'comment_${index}_2',
+            userId: 'commenter_2',
+            username: 'Ayşe Demir',
+            content: 'Ben de katılmak istiyorum!',
+            createdAt: DateTime.now().subtract(Duration(hours: 1)),
+            likes: [],
+            replies: [],
+          ),
+        ],
         likes: [],
-        replies: [],
-      ),
-      Comment(
-        id: 'comment_${index}_2',
-        userId: 'commenter_2',
-        username: 'Ayşe Demir',
-        content: 'Bunu denemek istiyorum.',
-        createdAt: DateTime.now().subtract(Duration(hours: 1)),
+      );
+    } else {
+      return Post(
+        id: 'explore_$index',
+        userId: 'user_$index',
+        content: 'Keşfet tabındaki örnek gönderi $index',
+        type: PostType.text,
+        createdAt: DateTime.now().subtract(Duration(hours: index)),
+        isVerified: index % 3 == 0,
+        comments: [
+          Comment(
+            id: 'comment_${index}_1',
+            userId: 'commenter_1',
+            username: 'Ahmet Yılmaz',
+            content: 'Harika bir gönderi!',
+            createdAt: DateTime.now().subtract(Duration(minutes: 30)),
+            isVerified: true,
+            likes: [],
+            replies: [],
+          ),
+          Comment(
+            id: 'comment_${index}_2',
+            userId: 'commenter_2',
+            username: 'Ayşe Demir',
+            content: 'Bunu denemek istiyorum.',
+            createdAt: DateTime.now().subtract(Duration(hours: 1)),
+            likes: [],
+            replies: [],
+          ),
+        ],
         likes: [],
-        replies: [],
-      ),
-    ],
-    likes: [],
-  ));
+      );
+    }
+  });
 
   final List<Post> _followingPosts = [
     Post(
@@ -184,7 +233,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this, initialIndex: 2);
+    _tabController = TabController(length: 5, vsync: this, initialIndex: 2);
     _speedDialController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 200),
@@ -683,9 +732,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     index: 2,
                   ),
                   _buildTab(
+                    icon: Icons.assignment,
+                    label: 'Görevler',
+                    index: 3,
+                  ),
+                  _buildTab(
                     icon: Icons.groups,
                     label: 'Gruplar',
-                    index: 3,
+                    index: 4,
                   ),
                 ],
               ),
@@ -709,9 +763,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 await Future.delayed(const Duration(seconds: 1));
               },
               child: ListView.builder(
-                itemCount: _explorePosts.length,
+                itemCount: _explorePosts.where((post) => post.type != PostType.mission).length,
                 itemBuilder: (context, index) {
-                  final post = _explorePosts[index];
+                  final nonMissionPosts = _explorePosts.where((post) => post.type != PostType.mission).toList();
+                  final post = nonMissionPosts[index];
                   return PostCard(
                     post: post,
                     onLike: () => _handlePostLike(post),
@@ -726,14 +781,36 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             
             // Takip Tab
             FollowingTab(
-              posts: _followingPosts,
+              posts: _followingPosts.where((post) => post.type != PostType.mission).toList(),
               stories: _stories,
               onLike: _handlePostLike,
               onComment: (post) => _showComments(context, post),
               onShare: (post) {
                 print('Share post: ${post.id}');
               },
-              onStoryTap: _handleStoryTap,
+            ),
+            
+            // Görevler Tab
+            RefreshIndicator(
+              onRefresh: () async {
+                // TODO: Implement refresh for missions tab
+                await Future.delayed(const Duration(seconds: 1));
+              },
+              child: ListView.builder(
+                itemCount: _explorePosts.where((post) => post.type == PostType.mission).length,
+                itemBuilder: (context, index) {
+                  final missionPosts = _explorePosts.where((post) => post.type == PostType.mission).toList();
+                  final post = missionPosts[index];
+                  return PostCard(
+                    post: post,
+                    onLike: () => _handlePostLike(post),
+                    onComment: () => _showComments(context, post),
+                    onShare: () {
+                      print('Post shared: ${post.id}');
+                    },
+                  );
+                },
+              ),
             ),
             
             // Gruplar Tab

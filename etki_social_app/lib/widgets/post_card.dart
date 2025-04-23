@@ -33,6 +33,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
   late Animation<double> _heartAnimation;
   bool _showHeart = false;
   final List<double> _randomOffsets = List.generate(8, (index) => Random().nextDouble() * pi);
+  int _currentPage = 0;
 
   @override
   void initState() {
@@ -126,249 +127,209 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
   bool get _isLiked => widget.post.likes.contains(UserUtils.getCurrentUser());
 
   Widget _buildMissionContent() {
-    if (widget.post.missionTitle == null) return const SizedBox.shrink();
-
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Mission title
-          Text(
-            widget.post.missionTitle!,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.primary,
-            ),
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MissionDetailsScreen(post: widget.post),
           ),
-          if (widget.post.content.isNotEmpty) ...[
-            const SizedBox(height: 8),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Mission title
             Text(
-              widget.post.content,
-              style: const TextStyle(fontSize: 14),
+              widget.post.missionTitle!,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
             ),
-          ],
-          const SizedBox(height: 12),
-          
-          // Mission details row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Reward
-              Row(
-                children: [
-                  _buildCoinIcon(),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${widget.post.missionReward ?? 100} Coin',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.amber,
-                    ),
-                  ),
-                ],
+            if (widget.post.content.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                widget.post.content,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[700],
+                  height: 1.4,
+                ),
               ),
-              
-              // Participants
-              Row(
-                children: [
-                  const Icon(
-                    Icons.group,
-                    size: 16,
-                    color: Colors.grey,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${widget.post.missionParticipants?.length ?? 0}/${widget.post.maxParticipants ?? "∞"}',
-                    style: const TextStyle(
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-              
-              // Deadline
-              if (widget.post.missionDeadline != null)
+            ],
+            const SizedBox(height: 10),
+            
+            // Mission details row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Reward
                 Row(
                   children: [
-                    const Icon(
-                      Icons.timer,
-                      size: 16,
-                      color: Colors.orange,
-                    ),
+                    _buildCoinIcon(size: 14),
                     const SizedBox(width: 4),
                     Text(
-                      _getRemainingTime(),
-                      style: const TextStyle(
-                        color: Colors.orange,
+                      '${widget.post.missionReward ?? 100} Coin',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.amber[700],
                       ),
                     ),
                   ],
                 ),
-            ],
-          ),
-          
-          const SizedBox(height: 12),
-          
-          // Participants list
-          if ((widget.post.missionParticipants?.length ?? 0) > 0) ...[
-            const Text(
-              'Katılımcılar',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 32,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: widget.post.missionParticipants!.length,
-                itemBuilder: (context, index) {
-                  final participant = widget.post.missionParticipants![index];
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: CircleAvatar(
-                      radius: 16,
-                      backgroundColor: _getStatusColor(participant.status),
-                      child: Text(
-                        (participant.username ?? participant.userId)[0].toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
+                
+                // Participants
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.group,
+                      size: 14,
+                      color: Colors.grey,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${widget.post.missionParticipants?.length ?? 0}/${widget.post.maxParticipants ?? "∞"}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+                
+                // Deadline
+                if (widget.post.missionDeadline != null)
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.access_time,
+                        size: 14,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _formatDeadline(widget.post.missionDeadline!),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[600],
                         ),
                       ),
+                    ],
+                  ),
+              ],
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // Participants list
+            if ((widget.post.missionParticipants?.length ?? 0) > 0) ...[
+              const Text(
+                'Katılımcılar',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 32,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: widget.post.missionParticipants!.length,
+                  itemBuilder: (context, index) {
+                    final participant = widget.post.missionParticipants![index];
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: CircleAvatar(
+                        radius: 16,
+                        backgroundColor: _getStatusColor(participant.status),
+                        child: Text(
+                          (participant.username ?? participant.userId)[0].toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+            
+            const SizedBox(height: 12),
+            
+            // Participate button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => MissionDetailsScreen(post: widget.post),
                     ),
                   );
                 },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: const Text(
+                  'Göreve Katıl',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
           ],
-          
-          const SizedBox(height: 12),
-          
-          // Participate button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => MissionDetailsScreen(post: widget.post),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              child: const Text(
-                'Detayları Görüntüle',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildCoinIcon() {
-    return SizedBox(
-      width: 32,
-      height: 32,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Rotating stars
-          AnimatedBuilder(
-            animation: _starController,
-            builder: (context, child) {
-              return Stack(
-                alignment: Alignment.center,
-                children: List.generate(8, (index) {
-                  final baseAngle = (index / 8) * 2 * pi;
-                  final randomOffset = _randomOffsets[index];
-                  final oscillation = sin(_starController.value * 2 * pi + randomOffset);
-                  final distance = 12 + oscillation * 2;
-                  final starRotation = _starController.value * 4 * pi + randomOffset;
-                  final opacity = 0.3 + (0.7 * (sin(_starController.value * 2 * pi + randomOffset) + 1) / 2);
-                  
-                  return Transform.translate(
-                    offset: Offset(
-                      cos(baseAngle + _starController.value * pi) * distance,
-                      sin(baseAngle + _starController.value * pi) * distance,
-                    ),
-                    child: Transform.rotate(
-                      angle: starRotation,
-                      child: Icon(
-                        Icons.star,
-                        size: 6,
-                        color: Colors.amber.withOpacity(opacity),
-                      ),
-                    ),
-                  );
-                }),
-              );
-            },
-          ),
-          // Coin background glow
-          Container(
-            width: 16,
-            height: 16,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.amber[300]!.withOpacity(0.5),
-                  blurRadius: 8,
-                  spreadRadius: 2,
-                ),
-              ],
-            ),
-          ),
-          // Main coin icon
-          const Icon(
-            Icons.circle,
-            size: 16,
-            color: Colors.amber,
-          ),
-          // Coin symbol
-          const Text(
-            '₺',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              shadows: [
-                Shadow(
-                  color: Colors.black26,
-                  offset: Offset(0, 1),
-                  blurRadius: 2,
-                ),
-              ],
-            ),
+  Widget _buildCoinIcon({double size = 16}) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.amber,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.amber.withOpacity(0.3),
+            blurRadius: 4,
+            spreadRadius: 1,
           ),
         ],
+      ),
+      child: Center(
+        child: Text(
+          '₺',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: size * 0.7,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }
 
-  String _getRemainingTime() {
-    if (widget.post.missionDeadline == null) return '∞';
-    
-    final remaining = widget.post.missionDeadline!.difference(DateTime.now());
+  String _formatDeadline(DateTime deadline) {
+    final remaining = deadline.difference(DateTime.now());
     if (remaining.isNegative) return 'Süresi doldu';
     
     if (remaining.inDays > 0) {
@@ -404,163 +365,145 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
         GestureDetector(
           onDoubleTap: _handleDoubleTap,
           child: Card(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             elevation: 0,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: AppColors.divider),
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(
+                color: Colors.grey.withOpacity(0.1),
+                width: 1,
+              ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Post Header
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Stack(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Post Header
+                  _buildPostHeader(),
+
+                  // Post Content
+                  if (widget.post.type == PostType.text) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Text(
+                        widget.post.content,
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: Colors.grey[800],
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                  ] else if (widget.post.type == PostType.image && widget.post.imageUrls != null) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Text(
+                        widget.post.content,
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: Colors.grey[800],
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+                      child: Stack(
+                        alignment: Alignment.bottomCenter,
                         children: [
-                          CircleAvatar(
-                            radius: 20,
-                            backgroundColor: AppColors.primary,
-                            child: Text(
-                              widget.post.userId[0].toUpperCase(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
+                          SizedBox(
+                            height: 300,
+                            child: PageView.builder(
+                              onPageChanged: (index) {
+                                setState(() {
+                                  _currentPage = index;
+                                });
+                              },
+                              itemCount: widget.post.imageUrls!.length,
+                              itemBuilder: (context, index) {
+                                return CachedNetworkImage(
+                                  imageUrl: widget.post.imageUrls![index],
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, url) => Container(
+                                    color: Colors.grey[100],
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        color: AppColors.primary.withOpacity(0.5),
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  ),
+                                  errorWidget: (context, url, error) => Container(
+                                    color: Colors.grey[100],
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.error_outline,
+                                        color: Colors.grey,
+                                        size: 32,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                           ),
-                          if (widget.post.isVerified)
-                            Positioned(
-                              right: -2,
-                              top: -2,
-                              child: Container(
-                                padding: const EdgeInsets.all(2),
-                                decoration: const BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
+                          // Image indicators
+                          if (widget.post.imageUrls!.length > 1)
+                            Container(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                  colors: [
+                                    Colors.black.withOpacity(0.3),
+                                    Colors.transparent,
+                                  ],
                                 ),
-                                child: const Icon(
-                                  Icons.verified,
-                                  size: 14,
-                                  color: Colors.blue,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: List.generate(
+                                  widget.post.imageUrls!.length,
+                                  (index) => Container(
+                                    width: 6,
+                                    height: 6,
+                                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: _currentPage == index
+                                          ? Colors.white
+                                          : Colors.white.withOpacity(0.5),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
                         ],
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.post.userId,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              _getTimeAgo(widget.post.createdAt),
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.more_vert),
-                        onPressed: () {
-                          // TODO: Show post options
-                        },
-                      ),
-                    ],
-                  ),
-                ),
+                    ),
+                  ] else if (widget.post.type == PostType.mission) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: _buildMissionContent(),
+                    ),
+                  ],
 
-                // Post Content
-                if (widget.post.type == PostType.text) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Text(
-                      widget.post.content,
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                  ),
-                ] else if (widget.post.type == PostType.image && widget.post.imageUrls != null) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Text(
-                      widget.post.content,
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                  ),
-                  SizedBox(
-                    height: 300,
-                    child: PageView.builder(
-                      itemCount: widget.post.imageUrls!.length,
-                      itemBuilder: (context, index) {
-                        return CachedNetworkImage(
-                          imageUrl: widget.post.imageUrls![index],
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(
-                            color: Colors.grey[300],
-                          ),
-                          errorWidget: (context, url, error) => const Center(
-                            child: Icon(Icons.error),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ] else if (widget.post.type == PostType.mission) ...[
-                  _buildMissionContent(),
+                  // Post Actions
+                  _buildPostActions(),
                 ],
-
-                // Post Actions
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      ScaleTransition(
-                        scale: _scaleAnimation,
-                        child: IconButton(
-                          icon: Icon(
-                            _isLiked ? Icons.favorite : Icons.favorite_border,
-                            color: _isLiked ? Colors.red : null,
-                          ),
-                          onPressed: _handleLikePressed,
-                        ),
-                      ),
-                      Text(
-                        widget.post.likes.length.toString(),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      IconButton(
-                        icon: const Icon(Icons.comment_outlined),
-                        onPressed: widget.onComment,
-                      ),
-                      Text(
-                        widget.post.comments.length.toString(),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      IconButton(
-                        icon: const Icon(Icons.share_outlined),
-                        onPressed: widget.onShare,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -579,7 +522,199 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
     );
   }
 
-  String _getTimeAgo(DateTime dateTime) {
+  Widget _buildPostHeader() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Stack(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.primary,
+                      AppColors.primary.withOpacity(0.8),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: CircleAvatar(
+                  radius: 18,
+                  backgroundColor: Colors.white,
+                  child: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: AppColors.primary,
+                    child: Text(
+                      widget.post.userId[0].toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              if (widget.post.isVerified)
+                Positioned(
+                  right: -2,
+                  top: -2,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.verified,
+                      size: 14,
+                      color: Colors.blue,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.post.userId,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  _formatTimeAgo(widget.post.createdAt),
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.more_vert,
+              color: Colors.grey[600],
+              size: 20,
+            ),
+            onPressed: () {
+              // TODO: Show post options
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPostActions() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              // Like button
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _handleLikePressed,
+                  borderRadius: BorderRadius.circular(20),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: AnimatedBuilder(
+                      animation: _likeController,
+                      builder: (context, child) {
+                        return Transform.scale(
+                          scale: _scaleAnimation.value,
+                          child: Icon(
+                            _isLiked ? Icons.favorite : Icons.favorite_border,
+                            color: _isLiked ? Colors.red : Colors.grey[600],
+                            size: 20,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                widget.post.likes.length.toString(),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 16),
+              
+              // Comment button
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: widget.onComment,
+                  borderRadius: BorderRadius.circular(20),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Icon(
+                      Icons.chat_bubble_outline,
+                      color: Colors.grey[600],
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                widget.post.comments.length.toString(),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          
+          // Share button
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: widget.onShare,
+              borderRadius: BorderRadius.circular(20),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Icon(
+                  Icons.share_outlined,
+                  color: Colors.grey[600],
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTimeAgo(DateTime dateTime) {
     final difference = DateTime.now().difference(dateTime);
     if (difference.inDays > 7) {
       return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
@@ -592,5 +727,65 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
     } else {
       return 'Az önce';
     }
+  }
+
+  Widget _buildPostImage() {
+    if (widget.post.imageUrls == null || widget.post.imageUrls!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Stack(
+      alignment: Alignment.bottomCenter,
+      children: [
+        // Image carousel
+        SizedBox(
+          height: 300,
+          child: PageView.builder(
+            itemCount: widget.post.imageUrls!.length,
+            onPageChanged: (index) {
+              setState(() {
+                _currentPage = index;
+              });
+            },
+            itemBuilder: (context, index) {
+              return CachedNetworkImage(
+                imageUrl: widget.post.imageUrls![index],
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Shimmer.fromColors(
+                  baseColor: Colors.grey[300]!,
+                  highlightColor: Colors.grey[100]!,
+                  child: Container(
+                    color: Colors.white,
+                  ),
+                ),
+                errorWidget: (context, url, error) => const Icon(Icons.error),
+              );
+            },
+          ),
+        ),
+        // Image indicators
+        if (widget.post.imageUrls!.length > 1)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                widget.post.imageUrls!.length,
+                (index) => Container(
+                  width: 6,
+                  height: 6,
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _currentPage == index
+                        ? Colors.white
+                        : Colors.white.withOpacity(0.5),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 } 
