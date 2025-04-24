@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:form_field_validator/form_field_validator.dart';
-import 'package:lottie/lottie.dart';
-import 'package:etki_social_app/constants/app_colors.dart';
+import 'package:etki_social_app/services/auth_service.dart';
+import 'package:etki_social_app/utils/validators.dart';
+import 'package:etki_social_app/widgets/custom_text_field.dart';
+import 'package:etki_social_app/widgets/custom_button.dart';
+import 'package:etki_social_app/widgets/date_picker_field.dart';
+import 'package:etki_social_app/widgets/gender_selector.dart';
+import 'package:etki_social_app/utils/theme.dart';
 import 'package:go_router/go_router.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -11,37 +15,59 @@ class RegisterScreen extends StatefulWidget {
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen>
-    with SingleTickerProviderStateMixin {
+class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
+  final _authService = AuthService();
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _birthDateController = TextEditingController();
   final _phoneController = TextEditingController();
+  String _selectedGender = '';
+
+  bool _isLoading = false;
+  int _currentStep = 0;
+  final int _totalSteps = 3;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-  bool _isLoading = false;
-  bool _isPasswordVisible = false;
-  bool _isConfirmPasswordVisible = false;
-  bool _isTermsAccepted = false;
-  DateTime? _birthDate;
-  String? _selectedGender;
+  late Animation<Offset> _slideAnimation;
+
+  // Step titles
+  final List<String> _stepTitles = [
+    'Kişisel Bilgiler',
+    'Hesap Bilgileri',
+    'Doğrulama'
+  ];
 
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 500),
     );
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _animationController,
-        curve: Curves.easeIn,
+        curve: Curves.easeInOut,
+      ),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0.2, 0),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeOutCubic,
       ),
     );
     _animationController.forward();
+
+    // Add listeners to text controllers
+    _emailController.addListener(_updateFormState);
+    _passwordController.addListener(_updateFormState);
+    _confirmPasswordController.addListener(_updateFormState);
   }
 
   @override
@@ -50,456 +76,473 @@ class _RegisterScreenState extends State<RegisterScreen>
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _birthDateController.dispose();
     _phoneController.dispose();
     _animationController.dispose();
     super.dispose();
   }
 
-  void _handleRegister() {
-    if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
-      // TODO: Implement register logic
-      Future.delayed(const Duration(seconds: 2), () {
-        setState(() => _isLoading = false);
-      });
+  void _updateFormState() {
+    if (mounted) {
+      setState(() {});
     }
   }
 
-  void _showTermsModal() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.8,
-        minHeight: MediaQuery.of(context).size.height * 0.4,
-      ),
-      builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              margin: const EdgeInsets.all(8),
-              height: 4,
-              width: 40,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Kullanıcı Sözleşmesi',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: MediaQuery.of(context).size.height * 0.6,
-                    child: SingleChildScrollView(
-                      child: Text(
-                        '''
-1. Gizlilik ve Veri Kullanımı
-   - Kullanıcı verileriniz güvenli bir şekilde saklanacaktır
-   - Verileriniz yalnızca hizmetlerimizi iyileştirmek için kullanılacaktır
-   - Üçüncü taraflarla veri paylaşımı yapılmayacaktır
-   - Veri işleme politikamız KVKK ve GDPR uyumludur
-   - Verileriniz şifrelenerek saklanır
-   - Düzenli güvenlik denetimleri yapılır
-   - Veri sızıntısı durumunda size bilgi verilir
+  Future<void> _register() async {
+    if (!_formKey.currentState!.validate()) return;
 
-2. Hesap Güvenliği
-   - Hesabınızın güvenliğinden siz sorumlusunuz
-   - Şifrenizi güçlü tutmanız önerilir
-   - Şüpheli aktiviteleri bildirmeniz gerekir
-   - İki faktörlü doğrulama kullanmanız önerilir
-   - Oturum açma bilgilerinizi kimseyle paylaşmayın
-   - Düzenli şifre değişikliği yapmanız önerilir
-   - Güvenlik bildirimlerini aktif tutun
+    setState(() => _isLoading = true);
 
-3. İçerik Kuralları
-   - Yasa dışı içerik paylaşımı yasaktır
-   - Başkalarının haklarına saygı gösterilmelidir
-   - Spam ve reklam içerikleri yasaktır
-   - Nefret söylemi ve ayrımcılık yasaktır
-   - Telif hakkı ihlali yasaktır
-   - Yanıltıcı bilgi paylaşımı yasaktır
-   - Uygunsuz içerik paylaşımı yasaktır
-
-4. Hesap İptali
-   - Hesabınızı istediğiniz zaman silebilirsiniz
-   - Hesap silme işlemi geri alınamaz
-   - Silinen veriler 30 gün içinde tamamen kaldırılır
-   - Hesap silme talebi 24 saat içinde işleme alınır
-   - Silinen verilerin yedekleri de temizlenir
-   - Hesap silme sonrası geri dönüş yapılamaz
-   - Silme işlemi tüm platformlarda geçerlidir
-
-5. Hizmet Kullanımı
-   - Hizmetlerimizi mevcut haliyle sunuyoruz
-   - Kesintisiz hizmet garantisi vermiyoruz
-   - Hizmet değişikliklerini önceden bildiriyoruz
-   - Bakım çalışmaları için bilgilendirme yapıyoruz
-   - Teknik sorunlar için destek sağlıyoruz
-   - Hizmet kalitesini sürekli iyileştiriyoruz
-   - Kullanıcı geri bildirimlerini değerlendiriyoruz
-
-6. Sorumluluklar
-   - Kullanıcılar kendi paylaşımlarından sorumludur
-   - Platform içerikleri denetler ve kaldırabilir
-   - Yasal zorunluluklar için işbirliği yapılır
-   - Hizmet kesintilerinden sorumlu değiliz
-   - Üçüncü taraf hizmetlerinden sorumlu değiliz
-   - Kullanıcı hatalarından sorumlu değiliz
-   - Doğal afetlerden kaynaklı kesintilerden sorumlu değiliz
-                      ''',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          height: 1.5,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                    child: const Text('Anladım'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _selectBirthDate() async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
-      firstDate: DateTime(1900),
-      lastDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
-      locale: const Locale('tr', 'TR'),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: AppColors.textPrimary,
-            ),
-          ),
-          child: child!,
+    try {
+      await _authService.register(
+        username: _usernameController.text,
+        email: _emailController.text,
+        password: _passwordController.text,
+        birthDate: _birthDateController.text,
+        gender: _selectedGender,
+      );
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
         );
-      },
-    );
-    if (picked != null) {
-      setState(() {
-        _birthDate = picked;
-      });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
-  bool _isValidPhoneNumber(String phone) {
-    // Türkiye telefon numarası formatı: 5XX XXX XX XX
-    final RegExp phoneRegex = RegExp(r'^5[0-9]{2}\s[0-9]{3}\s[0-9]{2}\s[0-9]{2}$');
-    return phoneRegex.hasMatch(phone);
+  void _nextStep() {
+    if (_currentStep < _totalSteps - 1) {
+      _animationController.reset();
+      setState(() => _currentStep++);
+      _animationController.forward();
+    } else {
+      _register();
+    }
+  }
+
+  void _previousStep() {
+    if (_currentStep > 0) {
+      _animationController.reset();
+      setState(() => _currentStep--);
+      _animationController.forward();
+    }
+  }
+
+  bool _validateCurrentStep() {
+    switch (_currentStep) {
+      case 0:
+        return _usernameController.text.isNotEmpty &&
+            _birthDateController.text.isNotEmpty &&
+            _selectedGender.isNotEmpty &&
+            _phoneController.text.isNotEmpty;
+      case 1:
+        return _emailController.text.isNotEmpty &&
+            _passwordController.text.isNotEmpty &&
+            _confirmPasswordController.text.isNotEmpty &&
+            _passwordController.text == _confirmPasswordController.text &&
+            Validators.validateEmail(_emailController.text) == null &&
+            Validators.validatePassword(_passwordController.text) == null;
+      case 2:
+        return true;
+      default:
+        return false;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppTheme.backgroundColor,
+      appBar: AppBar(
+        title: const Text(
+          'Bize Katıl',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
+            fontSize: 20,
+          ),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: AppTheme.primaryGradient,
+          ),
+        ),
+      ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 32),
-                // Logo or Animation
-                Lottie.asset(
-                  'assets/animations/register.json',
-                  height: 200,
-                  repeat: true,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              // Modern Step Indicator
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                decoration: BoxDecoration(
+                  gradient: AppTheme.primaryGradient,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primaryColor.withOpacity(0.2),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 32),
-                Text(
-                  'Hesap Oluştur',
-                  style: Theme.of(context).textTheme.displaySmall,
-                  textAlign: TextAlign.center,
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: List.generate(
+                        _totalSteps,
+                        (index) => Expanded(
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: index <= _currentStep
+                                  ? AppTheme.secondaryColor
+                                  : Colors.white.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      _stepTitles[_currentStep],
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Sosyal dünyaya katılmak için kayıt olun',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 32),
-                Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      TextFormField(
-                        controller: _usernameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Kullanıcı Adı',
-                          prefixIcon: Icon(Icons.person_outline),
-                        ),
-                        validator: MultiValidator([
-                          RequiredValidator(errorText: 'Kullanıcı adı zorunludur'),
-                          MinLengthValidator(3,
-                              errorText:
-                                  'Kullanıcı adı en az 3 karakter olmalıdır'),
-                        ]),
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(
-                          labelText: 'E-posta',
-                          prefixIcon: Icon(Icons.email_outlined),
-                        ),
-                        validator: MultiValidator([
-                          RequiredValidator(errorText: 'E-posta zorunludur'),
-                          EmailValidator(errorText: 'Geçerli bir e-posta giriniz'),
-                        ]),
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _passwordController,
-                        obscureText: !_isPasswordVisible,
-                        decoration: InputDecoration(
-                          labelText: 'Şifre',
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _isPasswordVisible
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _isPasswordVisible = !_isPasswordVisible;
-                              });
-                            },
-                          ),
-                        ),
-                        validator: MultiValidator([
-                          RequiredValidator(errorText: 'Şifre zorunludur'),
-                          MinLengthValidator(6,
-                              errorText: 'Şifre en az 6 karakter olmalıdır'),
-                        ]),
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _confirmPasswordController,
-                        obscureText: !_isConfirmPasswordVisible,
-                        decoration: InputDecoration(
-                          labelText: 'Şifre Tekrar',
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _isConfirmPasswordVisible
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _isConfirmPasswordVisible =
-                                    !_isConfirmPasswordVisible;
-                              });
-                            },
-                          ),
-                        ),
-                        validator: (value) {
-                          if (value != _passwordController.text) {
-                            return 'Şifreler eşleşmiyor';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _phoneController,
-                        keyboardType: TextInputType.phone,
-                        decoration: const InputDecoration(
-                          labelText: 'Telefon Numarası',
-                          prefixIcon: Icon(Icons.phone_outlined),
-                          prefixText: '+90 ',
-                          hintText: '5XX XXX XX XX',
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Telefon numarası zorunludur';
-                          }
-                          if (!_isValidPhoneNumber(value)) {
-                            return 'Geçerli bir telefon numarası giriniz';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      GestureDetector(
-                        onTap: _selectBirthDate,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.divider),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.calendar_today_outlined),
-                              const SizedBox(width: 16),
-                              Text(
-                                _birthDate != null
-                                    ? 'Doğum Tarihi: ${_birthDate!.day}/${_birthDate!.month}/${_birthDate!.year}'
-                                    : 'Doğum Tarihi Seçin',
-                                style: Theme.of(context).textTheme.bodyMedium,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        value: _selectedGender,
-                        decoration: const InputDecoration(
-                          labelText: 'Cinsiyet',
-                          prefixIcon: Icon(Icons.person_outline),
-                        ),
-                        dropdownColor: Colors.white,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                        icon: const Icon(Icons.arrow_drop_down),
-                        iconSize: 24,
-                        elevation: 16,
-                        borderRadius: BorderRadius.circular(12),
-                        items: [
-                          DropdownMenuItem(
-                            value: 'male',
-                            child: Row(
-                              children: [
-                                Icon(Icons.male, color: AppColors.primary),
-                                const SizedBox(width: 8),
-                                const Text('Erkek'),
-                              ],
-                            ),
-                          ),
-                          DropdownMenuItem(
-                            value: 'female',
-                            child: Row(
-                              children: [
-                                Icon(Icons.female, color: AppColors.primary),
-                                const SizedBox(width: 8),
-                                const Text('Kadın'),
-                              ],
-                            ),
-                          ),
-                          DropdownMenuItem(
-                            value: 'other',
-                            child: Row(
-                              children: [
-                                Icon(Icons.transgender, color: AppColors.primary),
-                                const SizedBox(width: 8),
-                                const Text('Diğer'),
-                              ],
-                            ),
-                          ),
-                          DropdownMenuItem(
-                            value: 'prefer_not_to_say',
-                            child: Row(
-                              children: [
-                                Icon(Icons.question_mark, color: AppColors.primary),
-                                const SizedBox(width: 8),
-                                const Text('Belirtmek İstemiyorum'),
-                              ],
-                            ),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedGender = value;
-                          });
-                        },
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Cinsiyet seçimi zorunludur';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
+              ),
+
+              // Form Content with Animation
+              Expanded(
+                child: SlideTransition(
+                  position: _slideAnimation,
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
                         children: [
-                          Checkbox(
-                            value: _isTermsAccepted,
-                            onChanged: (value) {
-                              setState(() {
-                                _isTermsAccepted = value ?? false;
-                              });
-                            },
-                            activeColor: AppColors.primary,
-                          ),
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: _showTermsModal,
-                              child: Text(
-                                'Kullanıcı sözleşmesini okudum ve kabul ediyorum',
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: _isTermsAccepted ? AppColors.textPrimary : AppColors.textSecondary,
-                                  decoration: TextDecoration.underline,
-                                  decorationColor: _isTermsAccepted ? AppColors.textPrimary : AppColors.textSecondary,
-                                ),
+                          if (_currentStep == 0) ...[
+                            _buildAnimatedFormField(
+                              CustomTextField(
+                                controller: _usernameController,
+                                label: 'Kullanıcı Adı',
+                                validator: Validators.validateUsername,
+                                prefixIcon: Icons.person_outline,
                               ),
                             ),
-                          ),
+                            const SizedBox(height: 16),
+                            _buildAnimatedFormField(
+                              CustomTextField(
+                                controller: _phoneController,
+                                label: 'Telefon Numarası',
+                                isPhoneNumber: true,
+                                maxLength: 14,
+                                prefixIcon: Icons.phone_outlined,
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Telefon numarası gereklidir';
+                                  }
+                                  if (value.replaceAll(RegExp(r'[^\d]'), '').length != 10) {
+                                    return 'Geçerli bir telefon numarası giriniz';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            _buildAnimatedFormField(
+                              DatePickerField(
+                                controller: _birthDateController,
+                                label: 'Doğum Tarihi',
+                                onDateSelected: (date) {
+                                  setState(() {});
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            _buildAnimatedFormField(
+                              GenderSelector(
+                                onGenderSelected: (gender) {
+                                  setState(() => _selectedGender = gender);
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text(
+                                  'Zaten hesabın var mı? ',
+                                  style: TextStyle(
+                                    color: AppTheme.textSecondary,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                GestureDetector(
+                                  onTap: () => context.push('/login'),
+                                  child: Text(
+                                    'Giriş Yap',
+                                    style: TextStyle(
+                                      color: AppTheme.primaryColor,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ] else if (_currentStep == 1) ...[
+                            _buildAnimatedFormField(
+                              CustomTextField(
+                                controller: _emailController,
+                                label: 'E-posta',
+                                keyboardType: TextInputType.emailAddress,
+                                validator: Validators.validateEmail,
+                                prefixIcon: Icons.email_outlined,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            _buildAnimatedFormField(
+                              CustomTextField(
+                                controller: _passwordController,
+                                label: 'Şifre',
+                                isPassword: true,
+                                validator: Validators.validatePassword,
+                                prefixIcon: Icons.lock_outline,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            _buildAnimatedFormField(
+                              CustomTextField(
+                                controller: _confirmPasswordController,
+                                label: 'Şifre Tekrar',
+                                isPassword: true,
+                                validator: (value) {
+                                  if (value != _passwordController.text) {
+                                    return 'Şifreler eşleşmiyor';
+                                  }
+                                  return null;
+                                },
+                                prefixIcon: Icons.lock_outline,
+                              ),
+                            ),
+                          ] else if (_currentStep == 2) ...[
+                            Container(
+                              padding: const EdgeInsets.all(32),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(24),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppTheme.primaryColor.withOpacity(0.1),
+                                    blurRadius: 30,
+                                    offset: const Offset(0, 15),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryColor.withOpacity(0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.check_circle_outline,
+                                      size: 48,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  const Text(
+                                    'Hesabınızı Oluşturmaya Hazırsınız!',
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'Lütfen bilgilerinizi kontrol edin',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 32),
+                                  _buildAnimatedReviewItem(
+                                    'Kullanıcı Adı',
+                                    _usernameController.text,
+                                    Icons.person_outline,
+                                  ),
+                                  _buildAnimatedReviewItem(
+                                    'Telefon',
+                                    _phoneController.text,
+                                    Icons.phone_outlined,
+                                  ),
+                                  _buildAnimatedReviewItem(
+                                    'E-posta',
+                                    _emailController.text,
+                                    Icons.email_outlined,
+                                  ),
+                                  _buildAnimatedReviewItem(
+                                    'Doğum Tarihi',
+                                    _birthDateController.text,
+                                    Icons.cake_outlined,
+                                  ),
+                                  _buildAnimatedReviewItem(
+                                    'Cinsiyet',
+                                    _selectedGender,
+                                    Icons.people_outline,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
-                      const SizedBox(height: 24),
-                      ElevatedButton(
-                        onPressed: _isLoading || !_isTermsAccepted ? null : _handleRegister,
-                        child: _isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text('Kayıt Ol'),
-                      ),
-                      const SizedBox(height: 16),
-                      TextButton(
-                        onPressed: () {
-                          context.go('/');
-                        },
-                        child: const Text('Zaten hesabınız var mı? Giriş yapın'),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ],
-            ),
+              ),
+
+              // Navigation Buttons
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      blurRadius: 20,
+                      offset: const Offset(0, -10),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    if (_currentStep > 0)
+                      Expanded(
+                        child: CustomButton(
+                          text: 'Geri',
+                          onPressed: _previousStep,
+                          backgroundColor: AppTheme.secondaryColor,
+                        ),
+                      ),
+                    if (_currentStep > 0) const SizedBox(width: 16),
+                    Expanded(
+                      child: CustomButton(
+                        text: _currentStep == _totalSteps - 1 ? 'Kayıt Ol' : 'İleri',
+                        onPressed: _validateCurrentStep() ? _nextStep : null,
+                        isLoading: _isLoading,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnimatedFormField(Widget child) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 300),
+      builder: (context, value, child) {
+        return Transform.scale(
+          scale: value,
+          child: child,
+        );
+      },
+      child: child,
+    );
+  }
+
+  Widget _buildAnimatedReviewItem(String label, String value, IconData icon) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 300),
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 20 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppTheme.divider,
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                size: 20,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
