@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:etki_social_app/utils/theme.dart';
 import 'package:flutter/services.dart';
+import 'package:etki_social_app/constants/app_colors.dart';
 
 class CustomTextField extends StatelessWidget {
   final TextEditingController controller;
@@ -12,6 +13,7 @@ class CustomTextField extends StatelessWidget {
   final Widget? suffixIcon;
   final bool isPhoneNumber;
   final int? maxLength;
+  final int? maxLines;
 
   const CustomTextField({
     super.key,
@@ -24,6 +26,7 @@ class CustomTextField extends StatelessWidget {
     this.suffixIcon,
     this.isPhoneNumber = false,
     this.maxLength,
+    this.maxLines,
   });
 
   String _formatPhoneNumber(String value) {
@@ -49,6 +52,7 @@ class CustomTextField extends StatelessWidget {
       controller: controller,
       obscureText: isPassword,
       keyboardType: isPhoneNumber ? TextInputType.phone : keyboardType,
+      maxLines: maxLines ?? 1,
       validator: validator,
       maxLength: isPhoneNumber ? 14 : maxLength, // 5XX XXX XX XX = 14 karakter (boşluklar dahil)
       inputFormatters: isPhoneNumber
@@ -117,6 +121,9 @@ class CustomTextField extends StatelessWidget {
         labelStyle: const TextStyle(
           color: AppTheme.textSecondary,
         ),
+        filled: true,
+        fillColor: Colors.grey[50],
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
     );
   }

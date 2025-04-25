@@ -123,43 +123,43 @@ class _StoryCircleState extends State<StoryCircle> with SingleTickerProviderStat
                             ),
                           );
                         },
-                      ),
+                ),
 
                     // User avatar
                     Container(
                       width: widget.size - 4,
                       height: widget.size - 4,
-                      padding: const EdgeInsets.all(2),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: ClipRRect(
+                  padding: const EdgeInsets.all(2),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: ClipRRect(
                         borderRadius: BorderRadius.circular(widget.size / 2),
                         child: widget.story.userImage.isEmpty
-                            ? CircleAvatar(
+                        ? CircleAvatar(
                                 radius: widget.size / 2,
-                                backgroundColor: AppColors.primary,
-                                child: Text(
+                            backgroundColor: AppColors.primary,
+                            child: Text(
                                   widget.story.userName[0].toUpperCase(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 24,
-                                  ),
-                                ),
-                              )
-                            : CachedNetworkImage(
-                                imageUrl: widget.story.userImage,
-                                fit: BoxFit.cover,
-                                placeholder: (context, url) => Container(
-                                  color: Colors.grey[300],
-                                ),
-                                errorWidget: (context, url, error) => const Center(
-                                  child: Icon(Icons.error),
-                                ),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 24,
                               ),
-                      ),
+                            ),
+                          )
+                        : CachedNetworkImage(
+                                imageUrl: widget.story.userImage,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Container(
+                              color: Colors.grey[300],
+                            ),
+                            errorWidget: (context, url, error) => const Center(
+                              child: Icon(Icons.error),
+                            ),
+                          ),
+                  ),
                     ),
                   ],
                 ),

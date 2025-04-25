@@ -166,7 +166,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> with Single
                           ),
                           child: Icon(
                             Icons.assignment,
-                            color: AppColors.primary,
+                          color: AppColors.primary,
                             size: 24,
                           ),
                         ),
@@ -180,25 +180,25 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> with Single
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                        ),
+                  ),
                               const SizedBox(height: 4),
-                              Text(
+                  Text(
                                 '${widget.post.missionParticipants?.length ?? 0} Katılımcı',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          ),
                         ),
+                  ),
+                ],
+              ),
+            ),
                       ],
                     ),
                   ),
-                  
+
                   // Mission Description
-                  Padding(
+            Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
                       widget.post.content,
@@ -219,8 +219,8 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> with Single
                       color: Colors.grey[50],
                       borderRadius: const BorderRadius.vertical(
                         bottom: Radius.circular(20),
-                      ),
                     ),
+                  ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
@@ -263,16 +263,16 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> with Single
                     ),
                   ],
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
                       'Katılımcılar',
-                      style: TextStyle(
+                        style: TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
                     const SizedBox(height: 12),
                     SizedBox(
                       height: 60,
@@ -322,24 +322,24 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> with Single
                                         ),
                                       ),
                                     ),
-                                  ],
-                                ),
+                    ],
+                  ),
                                 const SizedBox(height: 4),
                                 Text(
                                   participant.username ?? participant.userId,
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey[600],
-                                  ),
-                                ),
-                              ],
-                            ),
+              ),
+            ),
+          ],
+        ),
                           );
                         },
                       ),
-                    ),
-                  ],
-                ),
+            ),
+          ],
+        ),
               ),
             ],
             
@@ -348,25 +348,25 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> with Single
               padding: const EdgeInsets.all(16),
               child: SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
+        child: ElevatedButton(
+          onPressed: () {
                     // TODO: Implement mission participation
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    'Göreve Katıl',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            elevation: 0,
+          ),
+          child: const Text(
+            'Göreve Katıl',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
                 ),
               ),
             ),
@@ -400,18 +400,18 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> with Single
         const SizedBox(height: 4),
         if (isCoin)
           Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+        mainAxisSize: MainAxisSize.min,
+        children: [
               _buildCoinIcon(),
               const SizedBox(width: 4),
-              Text(
+          Text(
                 value,
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: Colors.amber,
-                ),
-              ),
+            ),
+          ),
             ],
           )
         else
@@ -422,7 +422,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> with Single
               fontWeight: FontWeight.bold,
             ),
           ),
-      ],
+        ],
     );
   }
 

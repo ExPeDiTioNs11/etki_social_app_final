@@ -17,7 +17,7 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final _authService = AuthService();
+  final AuthService _authService = AuthService();
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -91,23 +91,57 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
+      setState(() => _isLoading = true);
 
     try {
-      await _authService.register(
-        username: _usernameController.text,
+      // Convert birth date string to DateTime
+      final dateParts = _birthDateController.text.split('.');
+      if (dateParts.length != 3) {
+        throw Exception('Geçersiz tarih formatı. Lütfen GG.AA.YYYY formatında giriniz.');
+      }
+      
+      final day = int.parse(dateParts[0]);
+      final month = int.parse(dateParts[1]);
+      final year = int.parse(dateParts[2]);
+      
+      if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > DateTime.now().year) {
+        throw Exception('Geçersiz tarih değeri. Lütfen geçerli bir tarih giriniz.');
+      }
+      
+      final birthDate = DateTime(year, month, day);
+
+      // Register user with Firebase
+      await _authService.signUpWithEmailAndPassword(
         email: _emailController.text,
         password: _passwordController.text,
-        birthDate: _birthDateController.text,
+        username: _usernameController.text,
+        phoneNumber: _phoneController.text,
+        birthDate: birthDate,
         gender: _selectedGender,
       );
+
+      // Navigate to home screen on success
       if (mounted) {
-        Navigator.pushReplacementNamed(context, '/home');
+        context.go('/home');
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(
+            content: Text(
+              e.toString().contains('email-already-in-use')
+                  ? 'Bu email adresi zaten kullanımda'
+                  : e.toString().contains('weak-password')
+                      ? 'Şifre çok zayıf'
+                      : e.toString().contains('invalid-email')
+                          ? 'Geçersiz e-posta adresi'
+                          : e.toString().contains('invalid date format')
+                              ? 'Geçersiz tarih formatı. Lütfen GG.AA.YYYY formatında giriniz.'
+                              : e.toString(),
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
         );
       }
     } finally {
@@ -124,7 +158,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       _animationController.forward();
     } else {
       _register();
-    }
+  }
   }
 
   void _previousStep() {
@@ -180,8 +214,8 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
       body: SafeArea(
         child: Form(
           key: _formKey,
-          child: Column(
-            children: [
+            child: Column(
+              children: [
               // Modern Step Indicator
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -195,8 +229,8 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                     ),
                   ],
                 ),
-                child: Column(
-                  children: [
+                  child: Column(
+                    children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: List.generate(
@@ -214,8 +248,8 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
+                      ),
+                      const SizedBox(height: 16),
                     Text(
                       _stepTitles[_currentStep],
                       style: const TextStyle(
@@ -246,27 +280,27 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                                 validator: Validators.validateUsername,
                                 prefixIcon: Icons.person_outline,
                               ),
-                            ),
-                            const SizedBox(height: 16),
+                      ),
+                      const SizedBox(height: 16),
                             _buildAnimatedFormField(
                               CustomTextField(
-                                controller: _phoneController,
+                        controller: _phoneController,
                                 label: 'Telefon Numarası',
                                 isPhoneNumber: true,
                                 maxLength: 14,
                                 prefixIcon: Icons.phone_outlined,
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
                                     return 'Telefon numarası gereklidir';
-                                  }
+                          }
                                   if (value.replaceAll(RegExp(r'[^\d]'), '').length != 10) {
-                                    return 'Geçerli bir telefon numarası giriniz';
-                                  }
-                                  return null;
-                                },
+                            return 'Geçerli bir telefon numarası giriniz';
+                          }
+                          return null;
+                        },
                               ),
-                            ),
-                            const SizedBox(height: 16),
+                      ),
+                      const SizedBox(height: 16),
                             _buildAnimatedFormField(
                               DatePickerField(
                                 controller: _birthDateController,
@@ -274,9 +308,9 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                                 onDateSelected: (date) {
                                   setState(() {});
                                 },
-                              ),
-                            ),
-                            const SizedBox(height: 16),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
                             _buildAnimatedFormField(
                               GenderSelector(
                                 onGenderSelected: (gender) {
@@ -305,7 +339,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                ),
+                            ),
                               ],
                             ),
                           ] else if (_currentStep == 1) ...[
@@ -326,20 +360,20 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                                 isPassword: true,
                                 validator: Validators.validatePassword,
                                 prefixIcon: Icons.lock_outline,
-                              ),
                             ),
+                          ),
                             const SizedBox(height: 16),
                             _buildAnimatedFormField(
                               CustomTextField(
                                 controller: _confirmPasswordController,
                                 label: 'Şifre Tekrar',
                                 isPassword: true,
-                                validator: (value) {
+                        validator: (value) {
                                   if (value != _passwordController.text) {
                                     return 'Şifreler eşleşmiyor';
-                                  }
-                                  return null;
-                                },
+                          }
+                          return null;
+                        },
                                 prefixIcon: Icons.lock_outline,
                               ),
                             ),
@@ -358,7 +392,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                                 ],
                               ),
                               child: Column(
-                                children: [
+                        children: [
                                   Container(
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
@@ -386,8 +420,8 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                                     style: TextStyle(
                                       fontSize: 16,
                                       color: AppTheme.textSecondary,
-                                    ),
-                                  ),
+                                ),
+                      ),
                                   const SizedBox(height: 32),
                                   _buildAnimatedReviewItem(
                                     'Kullanıcı Adı',
@@ -429,7 +463,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                                  color: Colors.white,
                   boxShadow: [
                     BoxShadow(
                       color: AppTheme.primaryColor.withOpacity(0.1),
@@ -455,13 +489,13 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                         onPressed: _validateCurrentStep() ? _nextStep : null,
                         isLoading: _isLoading,
                       ),
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
       ),
     );
   }

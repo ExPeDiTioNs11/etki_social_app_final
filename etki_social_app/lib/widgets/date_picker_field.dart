@@ -36,7 +36,7 @@ class DatePickerField extends StatelessWidget {
     );
 
     if (picked != null) {
-      final formattedDate = DateFormat('dd/MM/yyyy').format(picked);
+      final formattedDate = DateFormat('dd.MM.yyyy').format(picked);
       controller.text = formattedDate;
       onDateSelected?.call(formattedDate);
     }

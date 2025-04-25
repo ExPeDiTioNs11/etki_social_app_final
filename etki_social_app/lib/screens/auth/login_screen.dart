@@ -3,6 +3,7 @@ import 'package:form_field_validator/form_field_validator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
 import 'package:etki_social_app/constants/app_colors.dart';
+import 'package:etki_social_app/services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,7 +14,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final _usernameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -38,20 +39,49 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   @override
   void dispose() {
-    _usernameController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     _animationController.dispose();
     super.dispose();
   }
 
-  void _handleLogin() {
+  void _handleLogin() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
-      // TODO: Implement actual login logic
-      Future.delayed(const Duration(seconds: 2), () {
-        setState(() => _isLoading = false);
-        context.go('/home');
-      });
+
+      try {
+        final authService = AuthService();
+        await authService.signInWithEmailAndPassword(
+          email: _emailController.text,
+          password: _passwordController.text,
+        );
+
+        if (mounted) {
+          context.go('/home');
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                e.toString().contains('user-not-found')
+                    ? 'Kullanıcı bulunamadı'
+                    : e.toString().contains('wrong-password')
+                        ? 'Yanlış şifre'
+                        : e.toString().contains('invalid-email')
+                            ? 'Geçersiz e-posta adresi'
+                            : 'Giriş yapılırken bir hata oluştu',
+              ),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
     }
   }
 
@@ -94,16 +124,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   child: Column(
                     children: [
                       TextFormField(
-                        controller: _usernameController,
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
                         decoration: const InputDecoration(
-                          labelText: 'Kullanıcı Adı',
-                          prefixIcon: Icon(Icons.person_outline),
+                          labelText: 'E-posta',
+                          prefixIcon: Icon(Icons.email_outlined),
                         ),
                         validator: MultiValidator([
-                          RequiredValidator(errorText: 'Kullanıcı adı zorunludur'),
-                          MinLengthValidator(3,
-                              errorText:
-                                  'Kullanıcı adı en az 3 karakter olmalıdır'),
+                          RequiredValidator(errorText: 'E-posta zorunludur'),
+                          EmailValidator(errorText: 'Geçerli bir e-posta adresi giriniz'),
                         ]),
                       ),
                       const SizedBox(height: 16),

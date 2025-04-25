@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "645834238328",
+    "project_id": "etki-social-app",
+    "storage_bucket": "etki-social-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:645834238328:android:2422274e529bfe5683c08d",
+        "android_client_info": {
+          "package_name": "com.example.etki_social_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJXj_Fa5-hAlL7IkAxugGNVqvaARmnxUg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

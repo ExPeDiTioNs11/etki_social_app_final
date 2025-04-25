@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';  // DragStartBehavior için import
+import 'package:go_router/go_router.dart';
 import 'package:etki_social_app/constants/app_colors.dart';
 import 'package:etki_social_app/models/post_model.dart';
 import 'package:etki_social_app/models/story.dart';
@@ -7,6 +8,7 @@ import 'package:etki_social_app/widgets/post_card.dart';
 import 'package:etki_social_app/widgets/comment_card.dart';
 import 'package:etki_social_app/screens/profile/profile_screen.dart';
 import 'package:etki_social_app/utils/user_utils.dart';
+import 'package:etki_social_app/screens/create_post/create_post_screen.dart';
 import 'following_tab.dart';
 import '../notifications/notifications_screen.dart';
 import '../messages/messages_screen.dart';
@@ -74,34 +76,34 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       );
     } else {
       return Post(
-        id: 'explore_$index',
-        userId: 'user_$index',
-        content: 'Keşfet tabındaki örnek gönderi $index',
-        type: PostType.text,
-        createdAt: DateTime.now().subtract(Duration(hours: index)),
+    id: 'explore_$index',
+    userId: 'user_$index',
+    content: 'Keşfet tabındaki örnek gönderi $index',
+    type: PostType.text,
+    createdAt: DateTime.now().subtract(Duration(hours: index)),
         isVerified: index % 3 == 0,
-        comments: [
-          Comment(
-            id: 'comment_${index}_1',
-            userId: 'commenter_1',
-            username: 'Ahmet Yılmaz',
-            content: 'Harika bir gönderi!',
-            createdAt: DateTime.now().subtract(Duration(minutes: 30)),
+    comments: [
+      Comment(
+        id: 'comment_${index}_1',
+        userId: 'commenter_1',
+        username: 'Ahmet Yılmaz',
+        content: 'Harika bir gönderi!',
+        createdAt: DateTime.now().subtract(Duration(minutes: 30)),
             isVerified: true,
-            likes: [],
-            replies: [],
-          ),
-          Comment(
-            id: 'comment_${index}_2',
-            userId: 'commenter_2',
-            username: 'Ayşe Demir',
-            content: 'Bunu denemek istiyorum.',
-            createdAt: DateTime.now().subtract(Duration(hours: 1)),
-            likes: [],
-            replies: [],
-          ),
-        ],
         likes: [],
+        replies: [],
+      ),
+      Comment(
+        id: 'comment_${index}_2',
+        userId: 'commenter_2',
+        username: 'Ayşe Demir',
+        content: 'Bunu denemek istiyorum.',
+        createdAt: DateTime.now().subtract(Duration(hours: 1)),
+        likes: [],
+        replies: [],
+      ),
+    ],
+    likes: [],
       );
     }
   });
@@ -632,10 +634,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        if (_isSpeedDialOpen) {
-          _closeSpeedDial();
-          return false;
-        }
         return true;
       },
       child: Scaffold(
@@ -836,133 +834,28 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
           ],
         ),
-        floatingActionButton: Stack(
-          alignment: Alignment.bottomRight,
-          clipBehavior: Clip.none,
-          children: [
-            FloatingActionButton(
-              onPressed: () {
-                setState(() {
-                  _isSpeedDialOpen = !_isSpeedDialOpen;
-                });
-              },
-              backgroundColor: AppColors.primary,
-              child: AnimatedRotation(
-                duration: const Duration(milliseconds: 200),
-                turns: _isSpeedDialOpen ? 0.125 : 0,
-                child: const Icon(Icons.add, size: 28),
-              ),
-            ),
-            if (_isSpeedDialOpen)
-              Positioned(
-                bottom: 80,
-                right: 0,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Container(
-                      margin: const EdgeInsets.only(right: 8, bottom: 16),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Gönderi Paylaş',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          FloatingActionButton.small(
-                            heroTag: 'share_post',
-                            onPressed: () {
-                              _closeSpeedDial();
-                              // TODO: Navigate to share post screen
-                            },
-                            backgroundColor: Colors.white,
-                            foregroundColor: AppColors.primary,
-                            elevation: 0,
-                            child: const Icon(Icons.post_add),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      margin: const EdgeInsets.only(right: 8, bottom: 16),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Görev Oluştur',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          FloatingActionButton.small(
-                            heroTag: 'create_mission',
-                            onPressed: () {
-                              _closeSpeedDial();
-                              // TODO: Navigate to create mission screen
-                            },
-                            backgroundColor: Colors.white,
-                            foregroundColor: AppColors.primary,
-                            elevation: 0,
-                            child: const Icon(Icons.assignment),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      margin: const EdgeInsets.only(right: 8, bottom: 16),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Bir hikaye oluştur',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          FloatingActionButton.small(
-                            heroTag: 'create_story',
-                            onPressed: () {
-                              _closeSpeedDial();
-                              // TODO: Navigate to create story screen
-                            },
-                            backgroundColor: Colors.white,
-                            foregroundColor: AppColors.primary,
-                            elevation: 0,
-                            child: const Icon(Icons.add_photo_alternate),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+        floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (context) => DraggableScrollableSheet(
+                initialChildSize: 0.9,
+                minChildSize: 0.5,
+                maxChildSize: 0.9,
+                builder: (context, scrollController) => Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  child: const CreatePostScreen(),
                 ),
               ),
-          ],
+            );
+          },
+          backgroundColor: AppColors.primary,
+          child: const Icon(Icons.add, size: 28),
         ),
       ),
     );

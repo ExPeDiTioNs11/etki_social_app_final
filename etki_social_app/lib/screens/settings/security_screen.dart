@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/colors.dart';
+import '../../services/auth_service.dart';
+import 'package:go_router/go_router.dart';
 
 class SecurityScreen extends StatefulWidget {
   const SecurityScreen({super.key});
@@ -13,6 +15,25 @@ class _SecurityScreenState extends State<SecurityScreen> {
   bool _loginAlerts = true;
   bool _saveLoginInfo = true;
   bool _rememberDevices = true;
+  final AuthService _authService = AuthService();
+
+  Future<void> _handleLogout() async {
+    try {
+      await _authService.signOut();
+      if (mounted) {
+        context.go('/login');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Çıkış yapılırken bir hata oluştu: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -188,9 +209,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
                   icon: Icons.logout_rounded,
                   title: 'Çıkış Yap',
                   subtitle: 'Hesabınızdan güvenli çıkış yapın',
-                  onTap: () {
-                    // TODO: Implement logout
-                  },
+                  onTap: _handleLogout,
                 ),
               ],
             ),
