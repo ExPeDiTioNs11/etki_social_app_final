@@ -412,50 +412,50 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                 // Post Header
                   _buildPostHeader(),
 
-                  // Post Content
-                  if (widget.post.type == PostType.text) ...[
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: Text(
-                        widget.post.content,
+                // Post Content
+                if (widget.post.type == PostType.text) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Text(
+                      widget.post.content,
                         style: TextStyle(
                           fontSize: 15,
                           color: Colors.grey[800],
                           height: 1.5,
                         ),
-                      ),
                     ),
-                  ] else if (widget.post.type == PostType.image && widget.post.imageUrls != null) ...[
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: Text(
-                        widget.post.content,
+                  ),
+                ] else if (widget.post.type == PostType.image && widget.post.imageUrls != null) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Text(
+                      widget.post.content,
                         style: TextStyle(
                           fontSize: 15,
                           color: Colors.grey[800],
                           height: 1.5,
                         ),
-                      ),
                     ),
+                  ),
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
                       child: Stack(
                         alignment: Alignment.bottomCenter,
                         children: [
-                          SizedBox(
-                            height: 300,
-                            child: PageView.builder(
+                  SizedBox(
+                    height: 300,
+                    child: PageView.builder(
                               onPageChanged: (index) {
                                 setState(() {
                                   _currentPage = index;
                                 });
                               },
-                              itemCount: widget.post.imageUrls!.length,
-                              itemBuilder: (context, index) {
-                                return CachedNetworkImage(
-                                  imageUrl: widget.post.imageUrls![index],
-                                  fit: BoxFit.cover,
-                                  placeholder: (context, url) => Container(
+                      itemCount: widget.post.imageUrls!.length,
+                      itemBuilder: (context, index) {
+                        return CachedNetworkImage(
+                          imageUrl: widget.post.imageUrls![index],
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
                                     color: Colors.grey[100],
                                     child: Center(
                                       child: CircularProgressIndicator(
@@ -463,7 +463,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                                         strokeWidth: 2,
                                       ),
                                     ),
-                                  ),
+                          ),
                                   errorWidget: (context, url, error) => Container(
                                     color: Colors.grey[100],
                                     child: const Center(
@@ -473,11 +473,11 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                                         size: 32,
                                       ),
                                     ),
-                                  ),
-                                );
-                              },
-                            ),
                           ),
+                        );
+                      },
+                    ),
+                  ),
                           // Image indicators
                           if (widget.post.imageUrls!.length > 1)
                             Container(
@@ -490,8 +490,8 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                                     Colors.black.withOpacity(0.3),
                                     Colors.transparent,
                                   ],
-                                ),
-                              ),
+                        ),
+                      ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: List.generate(
@@ -509,10 +509,10 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                                   ),
                                 ),
                               ),
-                            ),
-                        ],
                       ),
-                    ),
+                    ],
+                  ),
+                ),
                   ] else if (widget.post.type == PostType.mission) ...[
                 Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

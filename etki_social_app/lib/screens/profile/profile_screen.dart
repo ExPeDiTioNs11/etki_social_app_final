@@ -366,10 +366,15 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                 valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
               ),
             )
-          : NestedScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              headerSliverBuilder: (context, innerBoxIsScrolled) {
-                return [
+          : RefreshIndicator(
+              displacement: 0,
+              onRefresh: () async {
+                await _loadUserData();
+                await _loadUserPosts();
+              },
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
                   SliverAppBar(
                     expandedHeight: 200,
                     floating: false,
@@ -494,162 +499,169 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                     ),
                   ),
                   SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
+                    child: Container(
+                      color: Colors.white,
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                _userData?['username'] ?? 'Kullanıcı',
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Row(
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                  IconButton(
-                                    onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => const SettingsScreen(),
-                                        ),
-                                      );
-                                    },
-                                    icon: Icon(
-                                      Icons.settings_outlined,
-                                        color: AppColors.primary,
-                                      size: 20,
+                                    Text(
+                                      _userData?['username'] ?? 'Kullanıcı',
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
                                       ),
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
+                                    ),
+                                    Row(
+                                        children: [
+                                        IconButton(
+                                          onPressed: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) => const SettingsScreen(),
+                                              ),
+                                            );
+                                          },
+                                          icon: Icon(
+                                            Icons.settings_outlined,
+                                              color: AppColors.primary,
+                                            size: 20,
+                                            ),
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          ),
+                                        ],
                                     ),
                                   ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '@${_userData?['username'] ?? 'Kullanıcı'}',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            _userData?['bio'] ?? 'Profil açıklaması burada yer alacak. Kullanıcı hakkında kısa bir bilgi.',
-                            style: TextStyle(
-                              color: Colors.grey[800],
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
-                              const SizedBox(width: 4),
-                              Text(
-                                _userData?['createdAt'] != null
-                                    ? '${_formatDate(_userData!['createdAt'])} tarihinden beri üye'
-                                    : 'Ocak 2024\'ten beri üye',
-                                style: TextStyle(color: Colors.grey[600]),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          // Profile Stats
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              // Followers
-                              InkWell(
-                                onTap: () {
-                                  showModalBottomSheet(
-                                    context: context,
-                                    isScrollControlled: true,
-                                    backgroundColor: Colors.transparent,
-                                    builder: (context) => const FollowersListModal(),
-                                  );
-                                },
-                                child: Row(
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '@${_userData?['username'] ?? 'Kullanıcı'}',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  _userData?['bio'] ?? 'Profil açıklaması burada yer alacak. Kullanıcı hakkında kısa bir bilgi.',
+                                  style: TextStyle(
+                                    color: Colors.grey[800],
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
                                   children: [
-                                    Text(
-                                      '256',
-                                      style: TextStyle(fontWeight: FontWeight.bold),
-                                    ),
+                                    Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
                                     const SizedBox(width: 4),
                                     Text(
-                                      'Takipçi',
+                                      _userData?['createdAt'] != null
+                                          ? '${_formatDate(_userData!['createdAt'])} tarihinden beri üye'
+                                          : 'Ocak 2024\'ten beri üye',
                                       style: TextStyle(color: Colors.grey[600]),
                                     ),
                                   ],
                                 ),
-                              ),
-                              const SizedBox(width: 24),
-                              // Following
-                              InkWell(
-                                onTap: () {
-                                  showModalBottomSheet(
-                                    context: context,
-                                    isScrollControlled: true,
-                                    backgroundColor: Colors.transparent,
-                                    builder: (context) => const FollowingListModal(),
-                                  );
-                                },
-                                child: Row(
+                                const SizedBox(height: 12),
+                                // Profile Stats
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                   children: [
-                                    Text(
-                                      '128',
-                                      style: TextStyle(fontWeight: FontWeight.bold),
+                                    // Followers
+                                    InkWell(
+                                      onTap: () {
+                                        showModalBottomSheet(
+                                          context: context,
+                                          isScrollControlled: true,
+                                          backgroundColor: Colors.transparent,
+                                          builder: (context) => const FollowersListModal(),
+                                        );
+                                      },
+                                      child: Row(
+                                        children: [
+                                          Text(
+                                            '256',
+                                            style: TextStyle(fontWeight: FontWeight.bold),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Takipçi',
+                                            style: TextStyle(color: Colors.grey[600]),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'Takip',
-                                      style: TextStyle(color: Colors.grey[600]),
+                                    const SizedBox(width: 24),
+                                    // Following
+                                    InkWell(
+                                      onTap: () {
+                                        showModalBottomSheet(
+                                          context: context,
+                                          isScrollControlled: true,
+                                          backgroundColor: Colors.transparent,
+                                          builder: (context) => const FollowingListModal(),
+                                        );
+                                      },
+                                      child: Row(
+                                        children: [
+                                          Text(
+                                            '128',
+                                            style: TextStyle(fontWeight: FontWeight.bold),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Takip',
+                                            style: TextStyle(color: Colors.grey[600]),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 24),
+                                    // Shared Missions
+                                    Row(
+                                      children: [
+                                        Text(
+                                          '24',
+                                          style: TextStyle(fontWeight: FontWeight.bold),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Icon(
+                                          Icons.assignment_outlined,
+                                          size: 16,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(width: 24),
+                                    // Completed Missions
+                                    Row(
+                                      children: [
+                                        Text(
+                                          '12',
+                                          style: TextStyle(fontWeight: FontWeight.bold),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Icon(
+                                          Icons.check_circle_outline,
+                                          size: 16,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
-                              ),
-                              const SizedBox(width: 24),
-                              // Shared Missions
-                              Row(
-                                children: [
-                                  Text(
-                                    '24',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Icon(
-                                    Icons.assignment_outlined,
-                                    size: 16,
-                                    color: Colors.grey[600],
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(width: 24),
-                              // Completed Missions
-                              Row(
-                                children: [
-                                  Text(
-                                    '12',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Icon(
-                                    Icons.check_circle_outline,
-                                    size: 16,
-                                    color: Colors.grey[600],
-                                  ),
-                                ],
-                              ),
-                            ],
+                                const SizedBox(height: 16),
+                                _buildCoinBalance(),
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 16),
-                          _buildCoinBalance(),
                         ],
                       ),
                     ),
@@ -671,92 +683,68 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                     ),
                     pinned: true,
                   ),
-                ];
-              },
-              body: TabBarView(
-                controller: _tabController,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  // Gönderiler Tab
-                  _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : RefreshIndicator(
-                          onRefresh: () async {
-                            await _loadUserData();
-                            await _loadUserPosts();
-                          },
-                          child: _userPosts.isEmpty
-                              ? ListView(
-                                  physics: const AlwaysScrollableScrollPhysics(),
-                                  children: const [
-                                    Center(
-                                      child: Padding(
-                                        padding: EdgeInsets.only(top: 100),
-                                        child: Text(
-                                          'Henüz gönderi paylaşılmamış',
-                                          style: TextStyle(
-                                            color: Colors.grey,
-                                            fontSize: 16,
+                  SliverFillRemaining(
+                    child: TabBarView(
+                      controller: _tabController,
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: [
+                        // Gönderiler Tab
+                        _isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : _userPosts.isEmpty
+                                ? ListView(
+                                    physics: const AlwaysScrollableScrollPhysics(),
+                                    children: const [
+                                      Center(
+                                        child: Padding(
+                                          padding: EdgeInsets.only(top: 100),
+                                          child: Text(
+                                            'Henüz gönderi paylaşılmamış',
+                                            style: TextStyle(
+                                              color: Colors.grey,
+                                              fontSize: 16,
+                                            ),
                                           ),
                                         ),
                                       ),
-                                    ),
-                                  ],
-                                )
-                              : ListView.builder(
-                                  padding: const EdgeInsets.all(16),
-                                  physics: const AlwaysScrollableScrollPhysics(),
-                                  itemCount: _userPosts.length,
-                                  itemBuilder: (context, index) {
-                                    final post = _userPosts[index];
-                                    return PostCard(
-                                      post: post,
-                                      onLike: () {
-                                        // TODO: Implement like functionality
-                                      },
-                                      onComment: () {
-                                        // TODO: Implement comment functionality
-                                      },
-                                      onShare: () {
-                                        // TODO: Implement share functionality
-                                      },
-                                    );
-                                  },
-                                ),
+                                    ],
+                                  )
+                                : ListView.builder(
+                                    padding: const EdgeInsets.all(16),
+                                    physics: const AlwaysScrollableScrollPhysics(),
+                                    itemCount: _userPosts.length,
+                                    itemBuilder: (context, index) {
+                                      final post = _userPosts[index];
+                                      return PostCard(
+                                        post: post,
+                                        onLike: () {
+                                          // TODO: Implement like functionality
+                                        },
+                                        onComment: () {
+                                          // TODO: Implement comment functionality
+                                        },
+                                        onShare: () {
+                                          // TODO: Implement share functionality
+                                        },
+                                      );
+                                    },
+                                  ),
+                        // Görevler Tab
+                        ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            _buildMissionsList(),
+                          ],
                         ),
-                  // Görevler Tab
-                  RefreshIndicator(
-                    onRefresh: () async {
-                      await _loadUserData();
-                      // TODO: Implement missions refresh
-                      await Future.delayed(const Duration(seconds: 1));
-                    },
-                    child: ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: [
-                        _buildMissionsList(),
-                      ],
-                    ),
-                  ),
-                  // Medya Tab
-                  RefreshIndicator(
-                    onRefresh: () async {
-                      await _loadUserData();
-                      await _loadUserPosts();
-                    },
-                    child: _buildMediaList(),
-                  ),
-                  // Beğeniler Tab
-                  RefreshIndicator(
-                    onRefresh: () async {
-                      await _loadUserData();
-                      // TODO: Implement likes refresh
-                      await Future.delayed(const Duration(seconds: 1));
-                    },
-                    child: ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: [
-                        _buildLikesList(),
+                        // Medya Tab
+                        _buildMediaList(),
+                        // Beğeniler Tab
+                        ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            _buildLikesList(),
+                          ],
+                        ),
                       ],
                     ),
                   ),

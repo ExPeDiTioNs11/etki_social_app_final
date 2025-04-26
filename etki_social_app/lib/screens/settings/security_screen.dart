@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import '../../theme/colors.dart';
 import '../../services/auth_service.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'change_password_screen.dart';
+import 'change_email_screen.dart';
+import 'active_sessions_screen.dart';
 
 class SecurityScreen extends StatefulWidget {
   const SecurityScreen({super.key});
@@ -11,11 +15,47 @@ class SecurityScreen extends StatefulWidget {
 }
 
 class _SecurityScreenState extends State<SecurityScreen> {
-  bool _twoFactorAuth = false;
-  bool _loginAlerts = true;
-  bool _saveLoginInfo = true;
-  bool _rememberDevices = true;
+  bool _saveLoginInfo = false;
   final AuthService _authService = AuthService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _saveLoginInfo = prefs.getBool('saveLoginInfo') ?? false;
+    });
+  }
+
+  Future<void> _toggleSaveLoginInfo(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('saveLoginInfo', value);
+    
+    if (!value) {
+      // Eğer özellik kapatılırsa, kaydedilmiş giriş bilgilerini sil
+      await prefs.remove('savedEmails');
+      await prefs.remove('lastUsedEmail');
+    }
+
+    setState(() {
+      _saveLoginInfo = value;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(value 
+            ? 'Giriş bilgileri kaydedilecek' 
+            : 'Giriş bilgileri artık kaydedilmeyecek'),
+          backgroundColor: value ? Colors.green : Colors.grey,
+        ),
+      );
+    }
+  }
 
   Future<void> _handleLogout() async {
     try {
@@ -28,6 +68,117 @@ class _SecurityScreenState extends State<SecurityScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Çıkış yapılırken bir hata oluştu: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleLogoutAllSessions() async {
+    try {
+      // Onay modalını göster
+      final bool? confirm = await showModalBottomSheet<bool>(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (context) => Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Icon(
+                Icons.logout,
+                color: Colors.red[400],
+                size: 40,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Tüm Oturumları Kapat',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Tüm cihazlardaki oturumlarınız sonlandırılacak. Devam etmek istiyor musunuz?',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(color: Colors.grey[300]!),
+                        ),
+                      ),
+                      child: const Text(
+                        'İptal',
+                        style: TextStyle(
+                          color: Colors.black87,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        backgroundColor: Colors.red,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Tümünü Kapat',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+
+      if (confirm == true && mounted) {
+        await _authService.signOutAllSessions();
+        if (mounted) {
+          context.go('/login');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Oturumlar kapatılırken bir hata oluştu: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -62,7 +213,12 @@ class _SecurityScreenState extends State<SecurityScreen> {
                   title: 'Şifre Değiştir',
                   subtitle: 'Hesap şifrenizi güncelleyin',
                   onTap: () {
-                    // TODO: Implement password change
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ChangePasswordScreen(),
+                      ),
+                    );
                   },
                 ),
                 _buildSecurityButton(
@@ -70,55 +226,14 @@ class _SecurityScreenState extends State<SecurityScreen> {
                   title: 'E-posta Değiştir',
                   subtitle: 'Hesap e-posta adresinizi güncelleyin',
                   onTap: () {
-                    // TODO: Implement email change
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ChangeEmailScreen(),
+                      ),
+                    );
                   },
                 ),
-                _buildSecurityButton(
-                  icon: Icons.phone_outlined,
-                  title: 'Telefon Numarası',
-                  subtitle: 'Hesap telefon numaranızı güncelleyin',
-                  onTap: () {
-                    // TODO: Implement phone number change
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // İki Faktörlü Doğrulama
-            _buildSection(
-              title: 'İki Faktörlü Doğrulama',
-              children: [
-                _buildSecuritySwitch(
-                  title: 'İki Faktörlü Doğrulama',
-                  subtitle: 'Hesabınızı daha güvenli hale getirin',
-                  value: _twoFactorAuth,
-                  onChanged: (value) {
-                    setState(() {
-                      _twoFactorAuth = value;
-                    });
-                  },
-                ),
-                if (_twoFactorAuth) ...[
-                  const SizedBox(height: 16),
-                  _buildSecurityButton(
-                    icon: Icons.qr_code_scanner,
-                    title: 'QR Kod ile Kur',
-                    subtitle: 'Google Authenticator ile kurulum yapın',
-                    onTap: () {
-                      // TODO: Implement QR code setup
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  _buildSecurityButton(
-                    icon: Icons.sms_outlined,
-                    title: 'SMS ile Kur',
-                    subtitle: 'Telefon numaranız ile kurulum yapın',
-                    onTap: () {
-                      // TODO: Implement SMS setup
-                    },
-                  ),
-                ],
               ],
             ),
             const SizedBox(height: 24),
@@ -128,34 +243,10 @@ class _SecurityScreenState extends State<SecurityScreen> {
               title: 'Giriş Güvenliği',
               children: [
                 _buildSecuritySwitch(
-                  title: 'Giriş Uyarıları',
-                  subtitle: 'Yeni girişler hakkında bildirim alın',
-                  value: _loginAlerts,
-                  onChanged: (value) {
-                    setState(() {
-                      _loginAlerts = value;
-                    });
-                  },
-                ),
-                _buildSecuritySwitch(
                   title: 'Giriş Bilgilerini Kaydet',
                   subtitle: 'Cihazınızda giriş bilgilerinizi saklayın',
                   value: _saveLoginInfo,
-                  onChanged: (value) {
-                    setState(() {
-                      _saveLoginInfo = value;
-                    });
-                  },
-                ),
-                _buildSecuritySwitch(
-                  title: 'Cihazları Hatırla',
-                  subtitle: 'Güvendiğiniz cihazları kaydedin',
-                  value: _rememberDevices,
-                  onChanged: (value) {
-                    setState(() {
-                      _rememberDevices = value;
-                    });
-                  },
+                  onChanged: _toggleSaveLoginInfo,
                 ),
               ],
             ),
@@ -170,16 +261,19 @@ class _SecurityScreenState extends State<SecurityScreen> {
                   title: 'Aktif Oturumlar',
                   subtitle: 'Açık olan tüm oturumları görüntüleyin',
                   onTap: () {
-                    // TODO: Implement active sessions view
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ActiveSessionsScreen(),
+                      ),
+                    );
                   },
                 ),
                 _buildSecurityButton(
                   icon: Icons.logout_outlined,
                   title: 'Tüm Oturumları Kapat',
                   subtitle: 'Tüm cihazlardaki oturumları sonlandırın',
-                  onTap: () {
-                    // TODO: Implement logout all sessions
-                  },
+                  onTap: _handleLogoutAllSessions,
                 ),
               ],
             ),

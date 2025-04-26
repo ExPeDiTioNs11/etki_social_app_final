@@ -20,6 +20,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   late Animation<double> _fadeAnimation;
   bool _isLoading = false;
   bool _isPasswordVisible = false;
+  final _authService = AuthService();
+  List<String> _savedEmails = [];
 
   @override
   void initState() {
@@ -35,6 +37,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       ),
     );
     _animationController.forward();
+    _loadSavedEmails();
   }
 
   @override
@@ -45,13 +48,97 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     super.dispose();
   }
 
+  Future<void> _loadSavedEmails() async {
+    final emails = await _authService.getSavedEmails();
+    final lastUsedEmail = await _authService.getLastUsedEmail();
+    
+    setState(() {
+      _savedEmails = emails;
+      if (lastUsedEmail != null) {
+        _emailController.text = lastUsedEmail;
+        _loadPasswordForEmail(lastUsedEmail);
+      }
+    });
+  }
+
+  Future<void> _loadPasswordForEmail(String email) async {
+    final password = await _authService.getSavedPassword(email);
+    if (password != null) {
+      setState(() {
+        _passwordController.text = password;
+      });
+    }
+  }
+
+  void _showEmailOptions() {
+    if (_savedEmails.isEmpty) return;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Text(
+              'Kayıtlı E-postalar',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...List.generate(
+              _savedEmails.length,
+              (index) => ListTile(
+                leading: const Icon(Icons.email_outlined),
+                title: Text(_savedEmails[index]),
+                trailing: IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () async {
+                    await _authService.removeSavedEmail(_savedEmails[index]);
+                    await _loadSavedEmails();
+                    if (_emailController.text == _savedEmails[index]) {
+                      setState(() {
+                        _passwordController.text = '';
+                      });
+                    }
+                    if (mounted) {
+                      Navigator.pop(context);
+                    }
+                  },
+                ),
+                onTap: () {
+                  _emailController.text = _savedEmails[index];
+                  _loadPasswordForEmail(_savedEmails[index]);
+                  Navigator.pop(context);
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _handleLogin() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
       try {
-        final authService = AuthService();
-        await authService.signInWithEmailAndPassword(
+        await _authService.signInWithEmailAndPassword(
           email: _emailController.text,
           password: _passwordController.text,
         );
@@ -79,7 +166,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         }
       } finally {
         if (mounted) {
-          setState(() => _isLoading = false);
+        setState(() => _isLoading = false);
         }
       }
     }
@@ -126,14 +213,30 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'E-posta',
-                          prefixIcon: Icon(Icons.email_outlined),
+                          prefixIcon: const Icon(Icons.email_outlined),
+                          suffixIcon: _savedEmails.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.arrow_drop_down),
+                                  onPressed: _showEmailOptions,
+                                )
+                              : null,
                         ),
-                        validator: MultiValidator([
-                          RequiredValidator(errorText: 'E-posta zorunludur'),
-                          EmailValidator(errorText: 'Geçerli bir e-posta adresi giriniz'),
-                        ]),
+                        onTap: () {
+                          if (_savedEmails.isNotEmpty) {
+                            _showEmailOptions();
+                          }
+                        },
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'E-posta adresi gerekli';
+                          }
+                          if (!value.contains('@')) {
+                            return 'Geçerli bir e-posta adresi girin';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
