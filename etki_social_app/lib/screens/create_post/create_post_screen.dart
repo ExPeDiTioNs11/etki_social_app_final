@@ -19,22 +19,41 @@ class CreatePostScreen extends StatefulWidget {
 class _CreatePostScreenState extends State<CreatePostScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _postController = TextEditingController();
+  final TextEditingController _taskTitleController = TextEditingController();
+  final TextEditingController _taskDescriptionController = TextEditingController();
+  final TextEditingController _taskCoinController = TextEditingController();
+  final TextEditingController _taskParticipantController = TextEditingController();
+  final TextEditingController _taskDurationController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
   final _authService = AuthService();
   List<File> _selectedImages = [];
   bool _isLoading = false;
   Map<String, dynamic>? _userData;
+  int _selectedDuration = 1;
+  String _selectedDurationType = 'gün';
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadUserData();
+    _taskDurationController.text = _selectedDuration.toString();
+    _taskDurationController.addListener(_updateDuration);
+  }
+
+  void _updateDuration() {
+    setState(() {
+      _selectedDuration = int.tryParse(_taskDurationController.text) ?? 1;
+    });
   }
 
   Future<void> _loadUserData() async {
     try {
       final user = _authService.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        print('Kullanıcı girişi yapılmamış');
+        return;
+      }
 
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
@@ -42,12 +61,31 @@ class _CreatePostScreenState extends State<CreatePostScreen> with SingleTickerPr
           .get();
       
       if (mounted && userDoc.exists) {
-        setState(() {
-          _userData = userDoc.data();
-        });
+        final userData = userDoc.data();
+        if (userData != null) {
+          print('Kullanıcı verileri yüklendi: $userData');
+          setState(() {
+            _userData = {
+              'username': userData['username'] ?? 'Kullanıcı',
+              'profileImageUrl': userData['profileImageUrl'] ?? userData['profileImage'] ?? '',
+            };
+          });
+        } else {
+          print('Kullanıcı verileri boş');
+        }
+      } else {
+        print('Kullanıcı dokümanı bulunamadı');
       }
     } catch (e) {
-      print('Error loading user data: $e');
+      print('Kullanıcı verileri yüklenirken hata: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Kullanıcı bilgileri yüklenirken bir hata oluştu'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -55,6 +93,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> with SingleTickerPr
   void dispose() {
     _tabController.dispose();
     _postController.dispose();
+    _taskTitleController.dispose();
+    _taskDescriptionController.dispose();
+    _taskCoinController.dispose();
+    _taskParticipantController.dispose();
+    _taskDurationController.dispose();
     super.dispose();
   }
 
@@ -79,14 +122,362 @@ class _CreatePostScreenState extends State<CreatePostScreen> with SingleTickerPr
     });
   }
 
-  Future<void> _sharePost() async {
-    if (_postController.text.isEmpty && _selectedImages.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Lütfen en az bir resim veya metin ekleyin'),
-          backgroundColor: Colors.red,
+  Widget _buildCoinIcon({double size = 16}) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.amber,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.amber.withOpacity(0.3),
+            blurRadius: 4,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: Center(
+        child: Text(
+          '₺',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: size * 0.7,
+            fontWeight: FontWeight.bold,
+          ),
         ),
-      );
+      ),
+    );
+  }
+
+  Widget _buildTaskTab() {
+    return Form(
+      key: _formKey,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Başlık
+            const Text(
+              'Yeni Görev Oluştur',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Görevinizi detaylı bir şekilde açıklayın',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Görev Başlığı
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: CustomTextField(
+                controller: _taskTitleController,
+                label: 'Görev Başlığı',
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Lütfen görev başlığı girin';
+                  }
+                  return null;
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Görev Açıklaması
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: CustomTextField(
+                controller: _taskDescriptionController,
+                label: 'Görev Açıklaması',
+                maxLines: 4,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Lütfen görev açıklaması girin';
+                  }
+                  return null;
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Ödül ve Katılımcı Bilgileri
+            Row(
+              children: [
+                // Coin Miktarı
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey[200]!),
+                    ),
+                    child: CustomTextField(
+                      controller: _taskCoinController,
+                      label: 'Ödül Coin',
+                      keyboardType: TextInputType.number,
+                      prefixIcon: null,
+                      prefix: Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: _buildCoinIcon(size: 20),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Lütfen coin miktarı girin';
+                        }
+                        if (int.tryParse(value) == null) {
+                          return 'Geçerli bir sayı girin';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Katılımcı Sayısı
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey[200]!),
+                    ),
+                    child: CustomTextField(
+                      controller: _taskParticipantController,
+                      label: 'Katılımcı Sayısı',
+                      keyboardType: TextInputType.number,
+                      prefixIcon: Icons.people,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Lütfen katılımcı sayısı girin';
+                        }
+                        if (int.tryParse(value) == null) {
+                          return 'Geçerli bir sayı girin';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Süre Seçimi
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Görev Süresi',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: CustomTextField(
+                          controller: _taskDurationController,
+                          label: 'Süre',
+                          keyboardType: TextInputType.number,
+                          prefixIcon: Icons.timer,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Lütfen süre girin';
+                            }
+                            if (int.tryParse(value) == null) {
+                              return 'Geçerli bir sayı girin';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey[300]!),
+                        ),
+                        child: DropdownButton<String>(
+                          value: _selectedDurationType,
+                          underline: const SizedBox(),
+                          items: const [
+                            DropdownMenuItem(value: 'gün', child: Text('Gün')),
+                            DropdownMenuItem(value: 'saat', child: Text('Saat')),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedDurationType = value!;
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // Paylaş Butonu
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.primary,
+                    AppColors.primary.withOpacity(0.8),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: CustomButton(
+                text: 'Görevi Paylaş',
+                isLoading: _isLoading,
+                onPressed: () {
+                  if (_formKey.currentState?.validate() ?? false) {
+                    _handleTaskSubmit();
+                  }
+                },
+                backgroundColor: Colors.transparent,
+                textColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handlePostSubmit() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final user = _authService.currentUser;
+      if (user == null) throw Exception('Kullanıcı girişi yapılmamış');
+
+      // Kullanıcı verilerini kontrol et ve yükle
+      if (_userData == null) {
+        await _loadUserData();
+      }
+
+      if (_userData == null) {
+        throw Exception('Kullanıcı verileri yüklenemedi');
+      }
+
+      final username = _userData!['username']?.toString() ?? 'Kullanıcı';
+      final profileImage = _userData!['profileImageUrl']?.toString() ?? '';
+
+      // Resimleri yükle
+      List<String> imageUrls = [];
+      if (_selectedImages.isNotEmpty) {
+        for (var image in _selectedImages) {
+          final fileName = '${user.uid}_${DateTime.now().millisecondsSinceEpoch}_${path.basename(image.path)}';
+          final ref = FirebaseStorage.instance.ref().child('post_images').child(fileName);
+          
+          final metadata = SettableMetadata(
+            contentType: 'image/jpeg',
+            customMetadata: {
+              'uploadedBy': user.uid,
+              'uploadedAt': DateTime.now().toIso8601String(),
+            },
+          );
+
+          final uploadTask = ref.putFile(image, metadata);
+          final snapshot = await uploadTask;
+          final downloadUrl = await snapshot.ref.getDownloadURL();
+          imageUrls.add(downloadUrl);
+        }
+      }
+
+      // Gönderi verisi
+      final post = {
+        'content': _postController.text,
+        'userId': user.uid,
+        'username': username,
+        'profileImage': profileImage,
+        'createdAt': FieldValue.serverTimestamp(),
+        'likes': [],
+        'comments': [],
+        'shares': 0,
+        'type': _selectedImages.isNotEmpty ? 'image' : 'text',
+        'imageUrls': imageUrls,
+      };
+
+      // Gönderiyi posts koleksiyonuna ekle
+      await FirebaseFirestore.instance.collection('posts').add(post);
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gönderi başarıyla paylaşıldı'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Gönderi paylaşılırken hata: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gönderi paylaşılırken bir hata oluştu: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _handleTaskSubmit() async {
+    if (_formKey.currentState == null) {
+      print('Form state is null');
+      return;
+    }
+
+    if (!_formKey.currentState!.validate()) {
+      print('Form validation failed');
       return;
     }
 
@@ -94,61 +485,68 @@ class _CreatePostScreenState extends State<CreatePostScreen> with SingleTickerPr
 
     try {
       final user = _authService.currentUser;
-      if (user == null) throw Exception('Kullanıcı girişi yapılmamış');
-
-      // Resimleri yükle
-      List<String> imageUrls = [];
-      for (var image in _selectedImages) {
-        final fileName = '${user.uid}_post_${DateTime.now().millisecondsSinceEpoch}_${path.basename(image.path)}';
-        final ref = FirebaseStorage.instance.ref().child('post_images').child(fileName);
-        
-        final metadata = SettableMetadata(
-          contentType: 'image/jpeg',
-          customMetadata: {
-            'uploadedBy': user.uid,
-            'uploadedAt': DateTime.now().toIso8601String(),
-          },
-        );
-
-        final uploadTask = ref.putFile(image, metadata);
-        final snapshot = await uploadTask;
-        final downloadUrl = await snapshot.ref.getDownloadURL();
-        imageUrls.add(downloadUrl);
+      if (user == null) {
+        print('Kullanıcı girişi yapılmamış');
+        throw Exception('Kullanıcı girişi yapılmamış');
       }
 
-      // Gönderiyi oluştur
-      await FirebaseFirestore.instance.collection('posts').add({
-        'userId': user.uid,
-        'content': _postController.text,
-        'imageUrls': imageUrls,
+      // Kullanıcı verilerini kontrol et ve yükle
+      if (_userData == null) {
+        await _loadUserData();
+      }
+
+      if (_userData == null) {
+        print('Kullanıcı verileri yüklenemedi');
+        throw Exception('Kullanıcı verileri yüklenemedi');
+      }
+
+      final username = _userData!['username']?.toString() ?? 'Kullanıcı';
+      final profileImage = _userData!['profileImageUrl']?.toString() ?? '';
+
+      // Görev verisi
+      final task = {
+        'title': _taskTitleController.text,
+        'description': _taskDescriptionController.text,
+        'coinAmount': int.parse(_taskCoinController.text),
+        'participantCount': int.parse(_taskParticipantController.text),
+        'duration': _selectedDuration,
+        'durationType': _selectedDurationType,
+        'deadline': DateTime.now().add(
+          Duration(
+            days: _selectedDurationType == 'gün' ? _selectedDuration : 0,
+            hours: _selectedDurationType == 'saat' ? _selectedDuration : 0,
+          ),
+        ),
         'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
+        'status': 'active',
+        'participants': [],
+        'creatorId': user.uid,
+        'creatorUsername': username,
+        'creatorProfileImage': profileImage,
         'likes': [],
         'comments': [],
         'shares': 0,
-        'type': _tabController.index == 0 
-          ? (_selectedImages.isNotEmpty 
-              ? _postController.text.isNotEmpty 
-                ? 'image' // Hem resim hem yazı varsa
-                : 'image' // Sadece resim varsa
-              : 'text') // Sadece yazı varsa
-          : 'mission', // Görev tab'i seçiliyse
-      });
+        'type': 'mission',
+      };
+
+      // Görevi sadece tasks koleksiyonuna ekle
+      await FirebaseFirestore.instance.collection('tasks').add(task);
 
       if (mounted) {
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Gönderi başarıyla paylaşıldı'),
+            content: Text('Görev başarıyla paylaşıldı'),
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pop(context);
       }
     } catch (e) {
+      print('Görev paylaşılırken hata: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Gönderi paylaşılırken bir hata oluştu: $e'),
+            content: Text('Görev paylaşılırken bir hata oluştu: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -355,7 +753,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> with SingleTickerPr
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: _isLoading ? null : _sharePost,
+                          onPressed: _isLoading ? null : _handlePostSubmit,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -385,16 +783,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> with SingleTickerPr
                   ),
                 ),
                 // Görev Tab
-                const Center(
-                  child: Text(
-                    'Hazırlanıyor',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ),
+                _buildTaskTab(),
               ],
             ),
           ),

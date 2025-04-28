@@ -10,6 +10,8 @@ class CustomTextField extends StatelessWidget {
   final bool isPassword;
   final TextInputType? keyboardType;
   final IconData? prefixIcon;
+  final Color? prefixIconColor;
+  final Widget? prefix;
   final Widget? suffixIcon;
   final bool isPhoneNumber;
   final int? maxLength;
@@ -23,6 +25,8 @@ class CustomTextField extends StatelessWidget {
     this.isPassword = false,
     this.keyboardType,
     this.prefixIcon,
+    this.prefixIconColor,
+    this.prefix,
     this.suffixIcon,
     this.isPhoneNumber = false,
     this.maxLength,
@@ -80,7 +84,7 @@ class CustomTextField extends StatelessWidget {
         prefixIcon: prefixIcon != null
             ? Icon(
                 prefixIcon,
-                color: AppTheme.primaryColor,
+                color: prefixIconColor ?? AppTheme.primaryColor,
               )
             : null,
         prefix: isPhoneNumber
@@ -95,7 +99,7 @@ class CustomTextField extends StatelessWidget {
                   ),
                 ),
               )
-            : null,
+            : prefix,
         suffixIcon: suffixIcon,
         counterText: '',
         border: OutlineInputBorder(

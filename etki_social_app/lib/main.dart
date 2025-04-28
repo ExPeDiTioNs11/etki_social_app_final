@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -7,10 +8,18 @@ import 'package:etki_social_app/screens/auth/login_screen.dart';
 import 'package:etki_social_app/screens/auth/register_screen.dart';
 import 'package:etki_social_app/screens/home/home_screen.dart';
 import 'package:etki_social_app/screens/create_post/create_post_screen.dart';
+import 'package:etki_social_app/screens/profile/other_user_profile_screen.dart';
 import 'package:etki_social_app/services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Lock orientation to portrait mode
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+  
   await Firebase.initializeApp(
     options: const FirebaseOptions(
       apiKey: 'AIzaSyDJXj_Fa5-hAlL7IkAxugGNVqvaARmnxUg',
@@ -97,6 +106,13 @@ final GoRouter _router = GoRouter(
     GoRoute(
       path: '/create-post',
       builder: (context, state) => const CreatePostScreen(),
+    ),
+    GoRoute(
+      path: '/profile/:userId',
+      builder: (context, state) {
+        final userId = state.pathParameters['userId']!;
+        return OtherUserProfileScreen(userId: userId);
+      },
     ),
   ],
 );

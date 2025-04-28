@@ -36,6 +36,9 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
   bool _isProfileImageUploading = false;
   File? _profileImage;
   List<Post> _userPosts = [];
+  List<Post> _userMissions = [];
+  int _followersCount = 0;
+  int _followingCount = 0;
 
   // Yenileme animasyonu için controller
   final _refreshController = GlobalKey<RefreshIndicatorState>();
@@ -51,6 +54,8 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
     )..repeat();
     _loadUserData();
     _loadUserPosts();
+    _loadInitialMissions();
+    _loadFollowCounts();
   }
 
   @override
@@ -64,11 +69,20 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
     try {
       final userData = await _authService.getUserProfile();
       print('User Data: $userData');
-      if (mounted) {
+      if (mounted && userData != null) {
         setState(() {
-          _userData = userData;
+          _userData = {
+            'username': userData['username'] ?? 'Kullanıcı',
+            'profileImage': userData['profileImage'] ?? userData['profileImageUrl'],
+            'bannerImage': userData['bannerImage'] ?? userData['bannerImageUrl'],
+            'bio': userData['bio'] ?? '',
+            'fullName': userData['fullName'] ?? '',
+            'createdAt': userData['createdAt'],
+          };
           _isLoading = false;
         });
+      } else {
+        setState(() => _isLoading = false);
       }
     } catch (e) {
       if (mounted) {
@@ -104,15 +118,6 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
           .orderBy('createdAt', descending: true)
           .get();
 
-      if (snapshot.docs.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Henüz gönderi paylaşılmamış'),
-            backgroundColor: Colors.blue,
-          ),
-        );
-      }
-
       setState(() {
         _userPosts = snapshot.docs.map((doc) {
           final data = doc.data();
@@ -140,6 +145,15 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
         }).toList();
         _isLoading = false;
       });
+
+      if (snapshot.docs.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Henüz gönderi paylaşılmamış'),
+            backgroundColor: Colors.blue,
+          ),
+        );
+      }
     } catch (e) {
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -148,6 +162,92 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
           backgroundColor: Colors.red,
         ),
       );
+    }
+  }
+
+  // Görevleri yükleme fonksiyonu
+  Future<List<Post>> _loadUserMissions() async {
+    try {
+      final user = _authService.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Kullanıcı girişi yapılmamış'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return [];
+      }
+
+      final snapshot = await FirebaseFirestore.instance
+          .collection('tasks')
+          .where('creatorId', isEqualTo: user.uid)
+          .get();
+
+      final missions = snapshot.docs.map((doc) {
+        final data = doc.data();
+        return Post(
+          id: doc.id,
+          userId: data['creatorId'],
+          content: data['description'] ?? '',
+          type: PostType.mission,
+          missionTitle: data['title'],
+          missionDescription: data['description'],
+          missionReward: data['coinAmount'],
+          missionDeadline: data['deadline'] != null ? (data['deadline'] as Timestamp).toDate() : null,
+          missionParticipants: List<MissionParticipant>.from((data['participants'] ?? []).map((p) => MissionParticipant.fromMap(p))),
+          maxParticipants: data['participantCount'],
+          createdAt: (data['createdAt'] as Timestamp).toDate(),
+          likes: List<String>.from(data['likes'] ?? []),
+          comments: List<Comment>.from((data['comments'] ?? []).map((c) => Comment.fromMap(c))),
+        );
+      }).toList();
+
+      // Bellek üzerinde sıralama yap
+      missions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      
+      return missions;
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Görevler yüklenirken bir hata oluştu: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return [];
+    }
+  }
+
+  // İlk yüklemede görevleri yükle
+  Future<void> _loadInitialMissions() async {
+    final missions = await _loadUserMissions();
+    if (mounted) {
+      setState(() {
+        _userMissions = missions;
+      });
+    }
+  }
+
+  Future<void> _loadFollowCounts() async {
+    try {
+      final currentUserId = _authService.currentUser?.uid;
+      if (currentUserId == null) return;
+
+      // Kullanıcı dokümanını al
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUserId)
+          .get();
+
+      if (userDoc.exists) {
+        final data = userDoc.data() as Map<String, dynamic>;
+        setState(() {
+          _followersCount = (data['followers'] as List<dynamic>?)?.length ?? 0;
+          _followingCount = (data['following'] as List<dynamic>?)?.length ?? 0;
+        });
+      }
+    } catch (e) {
+      print('Error loading follow counts: $e');
     }
   }
 
@@ -212,7 +312,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
 
       if (mounted) {
         setState(() {
-          _userData?['bannerImageUrl'] = downloadUrl;
+          _userData?['bannerImage'] = downloadUrl;
           _isBannerUploading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
@@ -296,7 +396,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
 
       if (mounted) {
         setState(() {
-          _userData?['profileImageUrl'] = downloadUrl;
+          _userData?['profileImage'] = downloadUrl;
           _isProfileImageUploading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
@@ -357,6 +457,73 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
     }
   }
 
+  Future<void> _handleLike(Post post) async {
+    try {
+      final currentUser = _authService.currentUser;
+      if (currentUser == null) return;
+
+      // Gönderi tipine göre doğru koleksiyonu seç
+      final collection = post.type == PostType.mission ? 'tasks' : 'posts';
+      final postRef = FirebaseFirestore.instance.collection(collection).doc(post.id);
+      
+      // Önce Firestore'dan güncel beğeni listesini al
+      final docSnapshot = await postRef.get();
+      if (!docSnapshot.exists) return;
+      
+      final currentLikes = List<String>.from(docSnapshot.data()?['likes'] ?? []);
+      final isLiked = currentLikes.contains(currentUser.uid);
+      
+      // Firestore'u güncelle
+      await postRef.update({
+        'likes': isLiked
+            ? FieldValue.arrayRemove([currentUser.uid])
+            : FieldValue.arrayUnion([currentUser.uid]),
+      });
+
+      // UI'ı güncelle
+      setState(() {
+        if (post.type == PostType.mission) {
+          // Görevler listesinde güncelle
+          final missionIndex = _userMissions.indexWhere((p) => p.id == post.id);
+          if (missionIndex != -1) {
+            if (isLiked) {
+              _userMissions[missionIndex].likes.remove(currentUser.uid);
+            } else {
+              _userMissions[missionIndex].likes.add(currentUser.uid);
+            }
+          }
+
+          // Gönderiler listesindeki görevleri de güncelle
+          final postIndex = _userPosts.indexWhere((p) => p.id == post.id);
+          if (postIndex != -1) {
+            if (isLiked) {
+              _userPosts[postIndex].likes.remove(currentUser.uid);
+            } else {
+              _userPosts[postIndex].likes.add(currentUser.uid);
+            }
+          }
+        } else {
+          final index = _userPosts.indexWhere((p) => p.id == post.id);
+          if (index != -1) {
+            if (isLiked) {
+              _userPosts[index].likes.remove(currentUser.uid);
+            } else {
+              _userPosts[index].likes.add(currentUser.uid);
+            }
+          }
+        }
+      });
+    } catch (e) {
+      print('Beğeni işlemi sırasında hata: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Beğeni işlemi sırasında bir hata oluştu'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -367,34 +534,30 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
               ),
             )
           : RefreshIndicator(
-              displacement: 0,
-              onRefresh: () async {
-                await _loadUserData();
-                await _loadUserPosts();
-              },
+              onRefresh: _handleRefresh,
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
-                  SliverAppBar(
-                    expandedHeight: 200,
-                    floating: false,
-                    pinned: true,
+            SliverAppBar(
+              expandedHeight: 200,
+              floating: false,
+              pinned: true,
                     backgroundColor: Colors.white,
                     elevation: 0,
-                    flexibleSpace: FlexibleSpaceBar(
-                      background: Stack(
-                        children: [
+              flexibleSpace: FlexibleSpaceBar(
+                background: Stack(
+                  children: [
                           // Banner Image
                           GestureDetector(
                             onTap: _isBannerUploading ? null : _pickBannerImage,
                             child: Container(
-                              height: 150,
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withOpacity(0.8),
-                                image: _userData?['bannerImageUrl'] != null
+                      height: 150,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.8),
+                                image: _userData?['bannerImage'] != null
                                     ? DecorationImage(
-                                        image: NetworkImage(_userData!['bannerImageUrl']),
-                                        fit: BoxFit.cover,
+                                        image: NetworkImage(_userData!['bannerImage']),
+                          fit: BoxFit.cover,
                                       )
                                     : null,
                               ),
@@ -404,7 +567,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                                         valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                       ),
                                     )
-                                  : _userData?['bannerImageUrl'] == null
+                                  : _userData?['bannerImage'] == null
                                       ? Center(
                                           child: Column(
                                             mainAxisAlignment: MainAxisAlignment.center,
@@ -426,38 +589,38 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                                           ),
                                         )
                                       : null,
-                            ),
-                          ),
-                          // Profil fotoğrafı
-                          Positioned(
-                            left: 16,
-                            top: 100,
+                      ),
+                    ),
+                    // Profil fotoğrafı
+                    Positioned(
+                      left: 16,
+                      top: 100,
                             child: GestureDetector(
                               onTap: _isProfileImageUploading ? null : _pickProfileImage,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 4),
-                                ),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 4),
+                        ),
                                 child: Stack(
                                   alignment: Alignment.center,
                                   children: [
                                     CircleAvatar(
-                                      radius: 40,
-                                      backgroundColor: AppColors.primary,
-                                      backgroundImage: _userData?['profileImageUrl'] != null
-                                          ? NetworkImage(_userData!['profileImageUrl']) as ImageProvider
+                          radius: 40,
+                          backgroundColor: AppColors.primary,
+                                      backgroundImage: _userData?['profileImage'] != null
+                                          ? NetworkImage(_userData!['profileImage']) as ImageProvider
                                           : null,
-                                      child: _userData?['profileImageUrl'] == null
+                                      child: _userData?['profileImage'] == null
                                           ? Text(
-                                              '@${_userData?['username'] ?? 'Kullanıcı'}',
-                                              style: TextStyle(
-                                                fontSize: 32,
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.bold,
-                                              ),
+                                              (_userData?['username'] ?? 'K')[0].toUpperCase(),
+                                              style: const TextStyle(
+                              fontSize: 32,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                                             )
                                           : null,
                                     ),
@@ -474,52 +637,58 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                                           ),
                                         ),
                                       ),
-                                    if (!_isProfileImageUploading && _userData?['profileImageUrl'] != null)
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          color: Colors.black.withOpacity(0.5),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Padding(
-                                          padding: EdgeInsets.all(8.0),
-                                          child: Icon(
+                                    if (!_isProfileImageUploading)
+                                      Positioned(
+                                        right: 0,
+                                        bottom: 0,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(6),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primary,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: Colors.white,
+                                              width: 2,
+                                            ),
+                                          ),
+                                          child: const Icon(
                                             Icons.camera_alt,
                                             color: Colors.white,
-                                            size: 24,
+                                            size: 16,
                                           ),
                                         ),
                                       ),
                                   ],
                                 ),
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                  SliverToBoxAdapter(
+                  ],
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
                     child: Container(
                       color: Colors.white,
                       child: Column(
                         children: [
                           Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
                                     Text(
                                       _userData?['username'] ?? 'Kullanıcı',
                                       style: const TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                                     Row(
-                                        children: [
+                            children: [
                                         IconButton(
                                           onPressed: () {
                                             Navigator.push(
@@ -531,167 +700,209 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                                           },
                                           icon: Icon(
                                             Icons.settings_outlined,
-                                              color: AppColors.primary,
+                                  color: AppColors.primary,
                                             size: 20,
-                                            ),
+                                ),
                                           padding: EdgeInsets.zero,
                                           constraints: const BoxConstraints(),
-                                          ),
-                                        ],
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
+                              ),
+                            ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
                                   '@${_userData?['username'] ?? 'Kullanıcı'}',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                  ),
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Bio veya fullName boş ise profilini tamamla butonu göster
+                    (_userData?['bio']?.toString().trim().isEmpty ?? true) && (_userData?['fullName']?.toString().trim().isEmpty ?? true)
+                        ? InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const SettingsScreen(),
                                 ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  _userData?['bio'] ?? 'Profil açıklaması burada yer alacak. Kullanıcı hakkında kısa bir bilgi.',
-                                  style: TextStyle(
-                                    color: Colors.grey[800],
-                                    fontSize: 14,
-                                  ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: AppColors.primary.withOpacity(0.3),
+                                  width: 1,
                                 ),
-                                const SizedBox(height: 12),
-                                Row(
-                                  children: [
-                                    Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
-                                    const SizedBox(width: 4),
-                                    Text(
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.edit_outlined,
+                                color: AppColors.primary,
+                                    size: 18,
+                              ),
+                                  const SizedBox(width: 8),
+                              Text(
+                                    'Profilini Tamamla 🎯',
+                                style: TextStyle(
+                                  color: AppColors.primary,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                          )
+                        : Text(
+                            _userData?['bio'] ?? 'Profil açıklaması burada yer alacak. Kullanıcı hakkında kısa bir bilgi.',
+                      style: TextStyle(
+                              color: Colors.grey[800],
+                              fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
+                        const SizedBox(width: 4),
+                        Text(
                                       _userData?['createdAt'] != null
                                           ? '${_formatDate(_userData!['createdAt'])} tarihinden beri üye'
                                           : 'Ocak 2024\'ten beri üye',
-                                      style: TextStyle(color: Colors.grey[600]),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
                                 // Profile Stats
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                  children: [
-                                    // Followers
-                                    InkWell(
-                                      onTap: () {
-                                        showModalBottomSheet(
-                                          context: context,
-                                          isScrollControlled: true,
-                                          backgroundColor: Colors.transparent,
-                                          builder: (context) => const FollowersListModal(),
-                                        );
-                                      },
-                                      child: Row(
-                                        children: [
-                                          Text(
-                                            '256',
-                                            style: TextStyle(fontWeight: FontWeight.bold),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            'Takipçi',
-                                            style: TextStyle(color: Colors.grey[600]),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 24),
-                                    // Following
-                                    InkWell(
-                                      onTap: () {
-                                        showModalBottomSheet(
-                                          context: context,
-                                          isScrollControlled: true,
-                                          backgroundColor: Colors.transparent,
-                                          builder: (context) => const FollowingListModal(),
-                                        );
-                                      },
-                                      child: Row(
-                                        children: [
-                                          Text(
-                                            '128',
-                                            style: TextStyle(fontWeight: FontWeight.bold),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            'Takip',
-                                            style: TextStyle(color: Colors.grey[600]),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 24),
-                                    // Shared Missions
-                                    Row(
-                                      children: [
-                                        Text(
-                                          '24',
-                                          style: TextStyle(fontWeight: FontWeight.bold),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Icon(
-                                          Icons.assignment_outlined,
-                                          size: 16,
-                                          color: Colors.grey[600],
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(width: 24),
-                                    // Completed Missions
-                                    Row(
-                                      children: [
-                                        Text(
-                                          '12',
-                                          style: TextStyle(fontWeight: FontWeight.bold),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Icon(
-                                          Icons.check_circle_outline,
-                                          size: 16,
-                                          color: Colors.grey[600],
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                _buildCoinBalance(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        // Followers
+                        InkWell(
+                          onTap: () {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (context) => const FollowersListModal(),
+                            );
+                          },
+                          child: Row(
+                            children: [
+                              Text(
+                                _followersCount.toString(),
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Takipçi',
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        // Following
+                        InkWell(
+                          onTap: () {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (context) => const FollowingListModal(),
+                            );
+                          },
+                          child: Row(
+                            children: [
+                              Text(
+                                _followingCount.toString(),
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Takip',
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        // Shared Missions
+                        Row(
+                          children: [
+                            Text(
+                              _userMissions.length.toString(),
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.assignment_outlined,
+                              size: 16,
+                              color: Colors.grey[600],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(width: 24),
+                        // Completed Missions
+                        Row(
+                          children: [
+                            Text(
+                              '12',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.check_circle_outline,
+                              size: 16,
+                              color: Colors.grey[600],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _buildCoinBalance(),
                               ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  SliverPersistentHeader(
-                    delegate: _SliverAppBarDelegate(
-                      TabBar(
-                        controller: _tabController,
-                        labelColor: AppColors.primary,
-                        unselectedLabelColor: Colors.grey,
-                        indicatorColor: AppColors.primary,
-                        tabs: const [
-                          Tab(text: 'Gönderiler'),
-                          Tab(text: 'Görevler'),
-                          Tab(text: 'Medya'),
-                          Tab(text: 'Beğeniler'),
-                        ],
-                      ),
-                    ),
-                    pinned: true,
-                  ),
+                  ],
+                ),
+              ),
+            ),
+            SliverPersistentHeader(
+              delegate: _SliverAppBarDelegate(
+                TabBar(
+                  controller: _tabController,
+                  labelColor: AppColors.primary,
+                  unselectedLabelColor: Colors.grey,
+                  indicatorColor: AppColors.primary,
+                  tabs: const [
+                    Tab(text: 'Gönderiler'),
+                    Tab(text: 'Görevler'),
+                    Tab(text: 'Medya'),
+                    Tab(text: 'Beğeniler'),
+                  ],
+                ),
+              ),
+              pinned: true,
+            ),
                   SliverFillRemaining(
                     child: TabBarView(
-                      controller: _tabController,
+          controller: _tabController,
                       physics: const NeverScrollableScrollPhysics(),
-                      children: [
+          children: [
                         // Gönderiler Tab
                         _isLoading
                             ? const Center(child: CircularProgressIndicator())
-                            : _userPosts.isEmpty
+                            : _userPosts.where((post) => post.type != PostType.mission).isEmpty
                                 ? ListView(
                                     physics: const AlwaysScrollableScrollPhysics(),
                                     children: const [
@@ -712,14 +923,13 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                                 : ListView.builder(
                                     padding: const EdgeInsets.all(16),
                                     physics: const AlwaysScrollableScrollPhysics(),
-                                    itemCount: _userPosts.length,
+                                    itemCount: _userPosts.where((post) => post.type != PostType.mission).length,
                                     itemBuilder: (context, index) {
-                                      final post = _userPosts[index];
+                                      final nonMissionPosts = _userPosts.where((post) => post.type != PostType.mission).toList();
+                                      final post = nonMissionPosts[index];
                                       return PostCard(
                                         post: post,
-                                        onLike: () {
-                                          // TODO: Implement like functionality
-                                        },
+                                        onLike: () => _handleLike(post),
                                         onComment: () {
                                           // TODO: Implement comment functionality
                                         },
@@ -730,47 +940,67 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                                     },
                                   ),
                         // Görevler Tab
-                        ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          children: [
-                            _buildMissionsList(),
-                          ],
-                        ),
+                        _isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : _buildMissionsTab(),
                         // Medya Tab
-                        _buildMediaList(),
+            _buildMediaList(),
                         // Beğeniler Tab
                         ListView(
                           physics: const AlwaysScrollableScrollPhysics(),
                           children: [
-                            _buildLikesList(),
+            _buildLikesList(),
                           ],
                         ),
                       ],
                     ),
                   ),
-                ],
-              ),
-            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildMissionsList() {
-    return ListView.builder(
-      itemCount: 3,
-      itemBuilder: (context, index) {
-        return PostCard(
-          post: Post(
-            id: 'mission_$index',
-            userId: 'kullanici',
-            content: 'Görev $index',
-            type: PostType.mission,
-            missionTitle: 'Görev ${index + 1}',
-            missionDescription: 'Görev açıklaması burada yer alacak.',
-            createdAt: DateTime.now().subtract(Duration(days: index)),
+  Widget _buildMissionsTab() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_userMissions.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: const [
+          Center(
+            child: Padding(
+              padding: EdgeInsets.only(top: 100),
+              child: Text(
+                'Henüz görev paylaşılmamış',
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 16,
+                ),
+              ),
+            ),
           ),
-          onLike: () {},
-          onComment: () {},
-          onShare: () {},
+        ],
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      physics: const AlwaysScrollableScrollPhysics(),
+      itemCount: _userMissions.length,
+      itemBuilder: (context, index) {
+        final post = _userMissions[index];
+        return PostCard(
+          post: post,
+          onLike: () => _handleLike(post),
+          onComment: () {
+            // TODO: Implement comment functionality
+          },
+          onShare: () {
+            // TODO: Implement share functionality
+          },
         );
       },
     );
@@ -866,9 +1096,9 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
           child: Hero(
             tag: 'media_$index',
             child: Container(
-              decoration: BoxDecoration(
+          decoration: BoxDecoration(
                 color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.1 + shadowOpacity),
@@ -884,7 +1114,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                     borderRadius: BorderRadius.circular(8),
                     child: CachedNetworkImage(
                       imageUrl: allImages[index],
-                      fit: BoxFit.cover,
+              fit: BoxFit.cover,
                       placeholder: (context, url) => Container(
                         color: Colors.grey[300],
                         child: const Center(

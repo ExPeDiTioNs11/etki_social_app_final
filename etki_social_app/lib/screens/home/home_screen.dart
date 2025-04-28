@@ -12,6 +12,8 @@ import 'package:etki_social_app/screens/create_post/create_post_screen.dart';
 import 'following_tab.dart';
 import '../notifications/notifications_screen.dart';
 import '../messages/messages_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:etki_social_app/services/auth_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,6 +28,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late AnimationController _speedDialController;
   late Animation<double> _speedDialAnimation;
   final TextEditingController _searchController = TextEditingController();
+  bool _isLoading = false;
+  List<Post> _missions = []; // Görevler için state değişkeni
   
   // Post lists for different tabs
   final List<Post> _explorePosts = List.generate(10, (index) {
@@ -225,6 +229,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   String _selectedCategory = 'Tümü';
   List<Map<String, dynamic>> _filteredResults = [];
 
+  final AuthService _authService = AuthService();
+
   @override
   void initState() {
     super.initState();
@@ -247,10 +253,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       if (_tabController.indexIsChanging) {
         return;
       }
+      // Görevler tabına geçildiğinde görevleri yükle
+      if (_tabController.index == 3) {
+        _loadMissions();
+      }
       if (mounted) {
         setState(() {});
       }
     });
+
+    // İlk yükleme
+    _loadMissions();
   }
 
   @override
@@ -341,15 +354,59 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     print('Story tapped: ${story.userName}');
   }
 
-  void _handlePostLike(Post post) {
+  void _handlePostLike(Post post) async {
+    final user = _authService.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Beğeni işlemi için giriş yapmanız gerekiyor'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final isLiked = post.likes.contains(user.uid);
+
+    // Önce UI'ı güncelle
     setState(() {
-      final currentUser = UserUtils.getCurrentUser();
-      if (post.likes.contains(currentUser)) {
-        post.likes.remove(currentUser);
+      if (isLiked) {
+        post.likes.remove(user.uid);
       } else {
-        post.likes.add(currentUser);
+        post.likes.add(user.uid);
       }
     });
+
+    try {
+      if (post.type == PostType.mission) {
+        // Firebase'i güncelle
+        await FirebaseFirestore.instance
+            .collection('tasks')
+            .doc(post.id)
+            .update({
+          'likes': isLiked 
+              ? FieldValue.arrayRemove([user.uid])
+              : FieldValue.arrayUnion([user.uid]),
+        });
+      }
+    } catch (e) {
+      // Hata durumunda UI'ı eski haline getir
+      setState(() {
+        if (isLiked) {
+          post.likes.add(user.uid);
+        } else {
+          post.likes.remove(user.uid);
+        }
+      });
+      
+      print('Beğeni işlemi sırasında hata: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Beğeni işlemi sırasında bir hata oluştu'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _filterSearchResults() {
@@ -397,107 +454,107 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => DraggableScrollableSheet(
-          initialChildSize: 0.9,
-          minChildSize: 0.5,
-          maxChildSize: 0.9,
-          builder: (context, scrollController) => Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Column(
-              children: [
-                // Search Header
-                Container(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.arrow_back, color: Colors.black),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                          Expanded(
-                            child: Container(
-                              height: 45,
-                              decoration: BoxDecoration(
-                                color: Colors.grey[100],
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: TextField(
-                                controller: _searchController,
-                                autofocus: true,
-                                decoration: InputDecoration(
-                                  hintText: 'Kullanıcı, görev veya mesaj ara...',
-                                  hintStyle: TextStyle(color: Colors.grey[600]),
-                                  prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
-                                  border: InputBorder.none,
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                                ),
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        builder: (context, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Search Header
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back, color: Colors.black),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                        Expanded(
+                          child: Container(
+                            height: 45,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: TextField(
+                              controller: _searchController,
+                              autofocus: true,
+                              decoration: InputDecoration(
+                                hintText: 'Kullanıcı, görev veya mesaj ara...',
+                                hintStyle: TextStyle(color: Colors.grey[600]),
+                                prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                               ),
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      // Search Categories
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Search Categories
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
                             _buildSearchCategory('Tümü', _selectedCategory == 'Tümü', setModalState),
                             _buildSearchCategory('Kullanıcılar', _selectedCategory == 'Kullanıcılar', setModalState),
                             _buildSearchCategory('Görevler', _selectedCategory == 'Görevler', setModalState),
-                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Search Results
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    // Recent Searches
+                    if (_searchController.text.isEmpty) ...[
+                      const Text(
+                        'Son Aramalar',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      ..._recentSearches.map((search) => _buildRecentSearchItem(search['query'])),
                     ],
-                  ),
-                ),
-                // Search Results
-                Expanded(
-                  child: ListView(
-                    controller: scrollController,
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      // Recent Searches
-                      if (_searchController.text.isEmpty) ...[
-                        const Text(
-                          'Son Aramalar',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        ..._recentSearches.map((search) => _buildRecentSearchItem(search['query'])),
-                      ],
-                      // Search Results
-                      if (_searchController.text.isNotEmpty) ...[
-                        ..._filteredResults.map((result) => _buildSearchResultItem(
-                          title: result['title'],
-                          subtitle: result['subtitle'],
-                          image: result['image'],
-                          isUser: result['isUser'],
-                          onTap: () => _handleSearchItemTap(result),
-                        )),
-                      ],
+                    // Search Results
+                    if (_searchController.text.isNotEmpty) ...[
+                      ..._filteredResults.map((result) => _buildSearchResultItem(
+                        title: result['title'],
+                        subtitle: result['subtitle'],
+                        image: result['image'],
+                        isUser: result['isUser'],
+                        onTap: () => _handleSearchItemTap(result),
+                      )),
                     ],
-                  ),
+                  ],
                 ),
-              ],
+              ),
+            ],
             ),
           ),
         ),
@@ -722,7 +779,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     index: 1,
                   ),
                   _buildTab(
-                    icon: Icons.people,
+                    icon: Icons.people_outline,
                     label: 'Takip',
                     index: 2,
                   ),
@@ -775,37 +832,49 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
             
             // Takip Tab
-            FollowingTab(
-              posts: _followingPosts.where((post) => post.type != PostType.mission).toList(),
-              stories: _stories,
-              onLike: _handlePostLike,
-              onComment: (post) => _showComments(context, post),
-              onShare: (post) {
-                print('Share post: ${post.id}');
-              },
-            ),
+            const FollowingTab(),
             
             // Görevler Tab
             RefreshIndicator(
               onRefresh: () async {
-                // TODO: Implement refresh for missions tab
-                await Future.delayed(const Duration(seconds: 1));
+                await _loadMissions();
               },
-              child: ListView.builder(
-                itemCount: _explorePosts.where((post) => post.type == PostType.mission).length,
-                itemBuilder: (context, index) {
-                  final missionPosts = _explorePosts.where((post) => post.type == PostType.mission).toList();
-                  final post = missionPosts[index];
-                  return PostCard(
-                    post: post,
-                    onLike: () => _handlePostLike(post),
-                    onComment: () => _showComments(context, post),
-                    onShare: () {
-                      print('Post shared: ${post.id}');
-                    },
-                  );
-                },
-              ),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _missions.isEmpty
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: const [
+                            Center(
+                              child: Padding(
+                                padding: EdgeInsets.only(top: 100),
+                                child: Text(
+                                  'Henüz görev paylaşılmamış',
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          itemCount: _missions.length,
+                          itemBuilder: (context, index) {
+                            final post = _missions[index];
+                            return PostCard(
+                              post: post,
+                              onLike: () => _handlePostLike(post),
+                              onComment: () => _showComments(context, post),
+                              onShare: () {
+                                print('Post shared: ${post.id}');
+                              },
+                            );
+                          },
+                        ),
             ),
             
             // Gruplar Tab
@@ -916,174 +985,98 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   void _showComments(BuildContext context, Post post) {
-    final TextEditingController commentController = TextEditingController();
-    String? replyingTo;
-    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => DraggableScrollableSheet(
+      builder: (context) => DraggableScrollableSheet(
           initialChildSize: 0.9,
           minChildSize: 0.5,
-          maxChildSize: 0.9,
-          builder: (context, scrollController) => Container(
+        maxChildSize: 0.95,
+        builder: (_, controller) => Container(
             decoration: const BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Column(
               children: [
-                Container(
-                  margin: const EdgeInsets.all(8),
-                  height: 4,
-                  width: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
+              const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Text(
                         'Yorumlar',
                         style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (replyingTo != null)
-                        TextButton(
-                          onPressed: () {
-                            setModalState(() {
-                              replyingTo = null;
-                              commentController.clear();
-                            });
-                          },
-                          child: const Text('İptal'),
-                        ),
-                    ],
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                   ),
                 ),
                 Expanded(
                   child: ListView.builder(
-                    controller: scrollController,
+                  controller: controller,
                     itemCount: post.comments.length,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemBuilder: (context, index) {
                       final comment = post.comments[index];
-                      return CommentCard(
-                        comment: comment,
-                        onReply: () {
-                          setModalState(() {
-                            replyingTo = comment.id;
-                          });
-                          commentController.text = '@${comment.username ?? comment.userId} ';
-                          commentController.selection = TextSelection.fromPosition(
-                            TextPosition(offset: commentController.text.length),
-                          );
-                        },
-                        onLike: () {
-                          setModalState(() {
-                            if (comment.likes.contains(UserUtils.getCurrentUser())) {
-                              comment.likes.remove(UserUtils.getCurrentUser());
-                            } else {
-                              comment.likes.add(UserUtils.getCurrentUser());
-                            }
-                          });
-                          setState(() {}); // Ana state'i güncelle
-                        },
-                        isLiked: comment.likes.contains(UserUtils.getCurrentUser()),
-                        onViewProfile: (userId) {
-                          // TODO: Navigate to user profile
-                        },
-                      );
+                    return CommentCard(comment: comment);
                     },
                   ),
                 ),
-                Padding(
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(context).viewInsets.bottom,
-                    left: 16,
-                    right: 16,
-                    top: 8,
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        margin: const EdgeInsets.only(right: 12),
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.grey,
-                        ),
-                        child: const Icon(Icons.person, size: 20, color: Colors.white),
-                      ),
-                      Expanded(
-                        child: TextField(
-                          controller: commentController,
-                          decoration: const InputDecoration(
-                            hintText: 'Yorum yaz...',
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(vertical: 8),
-                          ),
-                          maxLines: null,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      ValueListenableBuilder<TextEditingValue>(
-                        valueListenable: commentController,
-                        builder: (context, value, child) {
-                          return TextButton(
-                            onPressed: value.text.trim().isEmpty ? null : () {
-                              final newComment = Comment(
-                                userId: UserUtils.getCurrentUser(),
-                                content: value.text.trim(),
-                                username: 'current_user', // TODO: Get actual username
-                              );
-                              
-                              setModalState(() {
-                                if (replyingTo != null) {
-                                  final parentComment = post.comments.firstWhere(
-                                    (c) => c.id == replyingTo,
-                                  );
-                                  parentComment.replies.add(newComment);
-                                } else {
-                                  post.comments.add(newComment);
-                                }
-                                
-                                commentController.clear();
-                                replyingTo = null;
-                              });
-                              setState(() {}); // Ana state'i güncelle
-                            },
-                            child: Text(
-                              'Paylaş',
-                              style: TextStyle(
-                                color: value.text.trim().isEmpty
-                                    ? Colors.blue.withOpacity(0.5)
-                                    : Colors.blue,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-            ),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  // Görevleri yükleme fonksiyonu
+  Future<void> _loadMissions() async {
+    if (mounted) {
+      setState(() => _isLoading = true);
+    }
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('tasks')
+          .get();
+
+      final missions = snapshot.docs.map((doc) {
+        final data = doc.data();
+        return Post(
+          id: doc.id,
+          userId: data['creatorId'],
+          content: data['description'] ?? '',
+          type: PostType.mission,
+          missionTitle: data['title'],
+          missionDescription: data['description'],
+          missionReward: data['coinAmount'],
+          missionDeadline: data['deadline'] != null ? (data['deadline'] as Timestamp).toDate() : null,
+          missionParticipants: List<MissionParticipant>.from((data['participants'] ?? []).map((p) => MissionParticipant.fromMap(p))),
+          maxParticipants: data['participantCount'],
+          createdAt: (data['createdAt'] as Timestamp).toDate(),
+          likes: List<String>.from(data['likes'] ?? []),
+          comments: List<Comment>.from((data['comments'] ?? []).map((c) => Comment.fromMap(c))),
+        );
+      }).toList();
+
+      // Bellek üzerinde sıralama yap
+      missions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      
+      if (mounted) {
+        setState(() {
+          _missions = missions;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Görevler yüklenirken hata: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Görevler yüklenirken bir hata oluştu: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 } 

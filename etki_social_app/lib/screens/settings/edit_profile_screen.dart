@@ -22,8 +22,40 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _fullNameController = TextEditingController();
   final _bioController = TextEditingController();
   final _phoneController = TextEditingController();
+  String? _selectedCity;
   bool _isLoading = false;
   Map<String, dynamic>? _userData;
+  double _completionPercentage = 0.0;
+
+  // Türkiye şehirleri listesi
+  final List<String> _cities = [
+    'Adana', 'Adıyaman', 'Afyonkarahisar', 'Ağrı', 'Amasya', 'Ankara', 'Antalya', 'Artvin',
+    'Aydın', 'Balıkesir', 'Bilecik', 'Bingöl', 'Bitlis', 'Bolu', 'Burdur', 'Bursa', 'Çanakkale',
+    'Çankırı', 'Çorum', 'Denizli', 'Diyarbakır', 'Edirne', 'Elazığ', 'Erzincan', 'Erzurum',
+    'Eskişehir', 'Gaziantep', 'Giresun', 'Gümüşhane', 'Hakkari', 'Hatay', 'Isparta', 'Mersin',
+    'İstanbul', 'İzmir', 'Kars', 'Kastamonu', 'Kayseri', 'Kırklareli', 'Kırşehir', 'Kocaeli',
+    'Konya', 'Kütahya', 'Malatya', 'Manisa', 'Kahramanmaraş', 'Mardin', 'Muğla', 'Muş', 'Nevşehir',
+    'Niğde', 'Ordu', 'Rize', 'Sakarya', 'Samsun', 'Siirt', 'Sinop', 'Sivas', 'Tekirdağ', 'Tokat',
+    'Trabzon', 'Tunceli', 'Şanlıurfa', 'Uşak', 'Van', 'Yozgat', 'Zonguldak', 'Aksaray', 'Bayburt',
+    'Karaman', 'Kırıkkale', 'Batman', 'Şırnak', 'Bartın', 'Ardahan', 'Iğdır', 'Yalova', 'Karabük',
+    'Kilis', 'Osmaniye', 'Düzce'
+  ];
+
+  // Calculate profile completion percentage
+  double _calculateCompletionPercentage() {
+    if (_userData == null) return 0.0;
+
+    int totalFields = 5; // username, fullName, bio, phoneNumber, city
+    int completedFields = 0;
+
+    if (_usernameController.text.isNotEmpty) completedFields++;
+    if (_fullNameController.text.isNotEmpty) completedFields++;
+    if (_bioController.text.isNotEmpty) completedFields++;
+    if (_phoneController.text.isNotEmpty) completedFields++;
+    if (_selectedCity != null) completedFields++;
+
+    return (completedFields / totalFields) * 100;
+  }
 
   @override
   void initState() {
@@ -41,6 +73,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _fullNameController.text = userData?['fullName'] ?? '';
           _bioController.text = userData?['bio'] ?? '';
           _phoneController.text = userData?['phoneNumber'] ?? '';
+          _selectedCity = userData?['city'];
+          _completionPercentage = _calculateCompletionPercentage();
         });
       }
     } catch (e) {
@@ -65,7 +99,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           fullName: _fullNameController.text,
           bio: _bioController.text,
           phoneNumber: _phoneController.text,
+          city: _selectedCity,
         );
+
+        setState(() {
+          _completionPercentage = _calculateCompletionPercentage();
+        });
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -164,6 +203,114 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         return null;
                       },
                     ),
+                    const SizedBox(height: 16),
+                    // City Selector
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey[300]!),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedCity,
+                          isExpanded: true,
+                          hint: const Text('Şehir Seçin'),
+                          icon: const Icon(Icons.location_city),
+                          items: _cities.map((String city) {
+                            return DropdownMenuItem<String>(
+                              value: city,
+                              child: Text(city),
+                            );
+                          }).toList(),
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              _selectedCity = newValue;
+                              _completionPercentage = _calculateCompletionPercentage();
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    // Profile Completion Indicator
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(15),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.1),
+                            spreadRadius: 2,
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Profil Tamamlanma',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: _getCompletionColor(_completionPercentage).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '${_completionPercentage.toStringAsFixed(0)}%',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: _getCompletionColor(_completionPercentage),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: TweenAnimationBuilder<double>(
+                              duration: const Duration(milliseconds: 800),
+                              curve: Curves.easeInOut,
+                              tween: Tween<double>(
+                                begin: 0,
+                                end: _completionPercentage / 100,
+                              ),
+                              builder: (context, value, _) => LinearProgressIndicator(
+                                value: value,
+                                backgroundColor: Colors.grey[100],
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  _getCompletionColor(_completionPercentage),
+                                ),
+                                minHeight: 8,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _getCompletionMessage(_completionPercentage),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                     const SizedBox(height: 32),
                     // Save Button
                     CustomButton(
@@ -176,5 +323,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
             ),
     );
+  }
+
+  Color _getCompletionColor(double percentage) {
+    if (percentage >= 80) return Colors.green;
+    if (percentage >= 50) return Colors.orange;
+    return Colors.red;
+  }
+
+  String _getCompletionMessage(double percentage) {
+    if (percentage >= 80) return 'Harika! Profiliniz neredeyse tamamen hazır.';
+    if (percentage >= 50) return 'İyi gidiyorsunuz! Birkaç alan daha doldurun.';
+    return 'Profilinizi tamamlamaya başlayın.';
   }
 } 

@@ -50,11 +50,6 @@ class _ChangeEmailScreenState extends State<ChangeEmailScreen> {
       // Firebase Auth'da e-posta güncelleme
       await FirebaseAuth.instance.currentUser!.verifyBeforeUpdateEmail(_newEmailController.text);
 
-      // Firestore'da e-posta güncelleme
-      await _authService.updateUserProfile(
-        email: _newEmailController.text,
-      );
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

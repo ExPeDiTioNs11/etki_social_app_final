@@ -7,6 +7,8 @@ import 'package:shimmer/shimmer.dart';
 import 'package:etki_social_app/utils/user_utils.dart';
 import '../screens/mission/mission_details_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:etki_social_app/services/auth_service.dart';
+import 'package:go_router/go_router.dart';
 
 class PostCard extends StatefulWidget {
   final Post post;
@@ -36,6 +38,9 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
   final List<double> _randomOffsets = List.generate(8, (index) => Random().nextDouble() * pi);
   int _currentPage = 0;
   Map<String, dynamic>? _userData;
+  final AuthService _authService = AuthService();
+  bool _isFollowing = false;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -58,6 +63,60 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
       }
     } catch (e) {
       print('Error loading user data: $e');
+    }
+    await _checkFollowStatus();
+  }
+
+  Future<void> _checkFollowStatus() async {
+    try {
+      final isFollowing = await _authService.isFollowingUser(widget.post.userId);
+      if (mounted) {
+        setState(() {
+          _isFollowing = isFollowing;
+        });
+      }
+    } catch (e) {
+      print('Error checking follow status: $e');
+    }
+  }
+
+  Future<void> _toggleFollow() async {
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      if (_isFollowing) {
+        await _authService.unfollowUser(widget.post.userId);
+      } else {
+        await _authService.followUser(widget.post.userId);
+      }
+
+      setState(() {
+        _isFollowing = !_isFollowing;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_isFollowing ? 'Kullanıcı takip edildi' : 'Kullanıcı takipten çıkarıldı'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bir hata oluştu. Lütfen tekrar deneyin.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -380,6 +439,10 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    if (_userData == null) {
+      return const SizedBox.shrink();
+    }
+
     return Stack(
       children: [
         GestureDetector(
@@ -410,120 +473,56 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Post Header
-                  _buildPostHeader(),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                    child: _buildUserInfo(),
+                ),
 
                 // Post Content
                 if (widget.post.type == PostType.text) ...[
+                    if (widget.post.content.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Text(
                       widget.post.content,
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: Colors.grey[800],
-                          height: 1.5,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            color: Colors.grey,
+                            height: 1.5,
+                          ),
                         ),
-                    ),
-                  ),
-                ] else if (widget.post.type == PostType.image && widget.post.imageUrls != null) ...[
+                      ),
+                    if (widget.post.imageUrls != null && widget.post.imageUrls!.isNotEmpty)
+                      _buildPostImages(),
+                  ] else if (widget.post.type == PostType.image) ...[
+                    if (widget.post.content.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Text(
                       widget.post.content,
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: Colors.grey[800],
-                          height: 1.5,
-                        ),
-                    ),
-                  ),
-                    ClipRRect(
-                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
-                      child: Stack(
-                        alignment: Alignment.bottomCenter,
-                        children: [
-                  SizedBox(
-                    height: 300,
-                    child: PageView.builder(
-                              onPageChanged: (index) {
-                                setState(() {
-                                  _currentPage = index;
-                                });
-                              },
-                      itemCount: widget.post.imageUrls!.length,
-                      itemBuilder: (context, index) {
-                        return CachedNetworkImage(
-                          imageUrl: widget.post.imageUrls![index],
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(
-                                    color: Colors.grey[100],
-                                    child: Center(
-                                      child: CircularProgressIndicator(
-                                        color: AppColors.primary.withOpacity(0.5),
-                                        strokeWidth: 2,
-                                      ),
-                                    ),
+                          style: const TextStyle(
+                            fontSize: 15,
+                            color: Colors.grey,
+                            height: 1.5,
                           ),
-                                  errorWidget: (context, url, error) => Container(
-                                    color: Colors.grey[100],
-                                    child: const Center(
-                                      child: Icon(
-                                        Icons.error_outline,
-                                        color: Colors.grey,
-                                        size: 32,
-                                      ),
-                                    ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                          // Image indicators
-                          if (widget.post.imageUrls!.length > 1)
-                            Container(
-                              padding: const EdgeInsets.only(bottom: 8.0),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.bottomCenter,
-                                  end: Alignment.topCenter,
-                                  colors: [
-                                    Colors.black.withOpacity(0.3),
-                                    Colors.transparent,
-                                  ],
                         ),
                       ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: List.generate(
-                                  widget.post.imageUrls!.length,
-                                  (index) => Container(
-                                    width: 6,
-                                    height: 6,
-                                    margin: const EdgeInsets.symmetric(horizontal: 2),
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: _currentPage == index
-                                          ? Colors.white
-                                          : Colors.white.withOpacity(0.5),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                      ),
-                    ],
-                  ),
-                ),
+                    if (widget.post.imageUrls != null && widget.post.imageUrls!.isNotEmpty)
+                      _buildPostImages(),
                   ] else if (widget.post.type == PostType.mission) ...[
-                Padding(
+                    Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       child: _buildMissionContent(),
                     ),
-                  ],
-
-                  // Post Actions
-                  _buildPostActions(),
                 ],
-              ),
+
+                // Post Actions
+                Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: _buildPostActions(),
+                      ),
+                    ],
+                  ),
             ),
           ),
         ),
@@ -542,23 +541,25 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildPostHeader() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
+  Widget _buildUserInfo() {
+    return GestureDetector(
+      onTap: () {
+        GoRouter.of(context).push('/profile/${widget.post.userId}');
+      },
       child: Row(
         children: [
-          // Profil Fotoğrafı
+          // Profile Image
           CircleAvatar(
             radius: 20,
             backgroundColor: AppColors.primary.withOpacity(0.2),
-            backgroundImage: _userData?['profileImageUrl'] != null
-                ? NetworkImage(_userData!['profileImageUrl'])
+            backgroundImage: _userData?['profileImageUrl'] != null || _userData?['profileImage'] != null
+                ? NetworkImage(_userData?['profileImageUrl'] ?? _userData?['profileImage'] ?? '')
                 : null,
-            child: _userData?['profileImageUrl'] == null
+            child: _userData?['profileImageUrl'] == null && _userData?['profileImage'] == null
                 ? Text(
-                    _userData?['username']?.toString().substring(0, 1).toUpperCase() ?? '?',
+                    (_userData?['username'] ?? 'K')[0].toUpperCase(),
                     style: const TextStyle(
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: AppColors.primary,
                     ),
@@ -566,7 +567,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                 : null,
           ),
           const SizedBox(width: 12),
-          // Kullanıcı Bilgileri
+          // Username and time
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -575,26 +576,51 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                   _userData?['username'] ?? 'Kullanıcı',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 15,
+                    fontSize: 16,
                   ),
                 ),
                 Text(
-                  _formatTimeAgo(widget.post.createdAt),
+                  _formatDate(widget.post.createdAt),
                   style: TextStyle(
-                    color: Colors.grey[600],
                     fontSize: 12,
+                    color: Colors.grey[600],
                   ),
                 ),
               ],
             ),
           ),
-          // Diğer İşlemler Menüsü
-          IconButton(
-            icon: const Icon(Icons.more_vert),
-            onPressed: () {
-              // TODO: Implement post options menu
-            },
-          ),
+          // Follow button
+          if (widget.post.userId != _authService.currentUser?.uid)
+            _isLoading
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
+                  )
+                : TextButton(
+                    onPressed: _toggleFollow,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        side: BorderSide(
+                          color: _isFollowing ? Colors.grey[300]! : AppColors.primary,
+                          width: 1,
+                        ),
+                      ),
+                      backgroundColor: _isFollowing ? Colors.grey[100] : AppColors.primary,
+                    ),
+                    child: Text(
+                      _isFollowing ? 'Takibi Bırak' : 'Takip Et',
+                      style: TextStyle(
+                        color: _isFollowing ? Colors.grey[700] : Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
         ],
       ),
     );
@@ -692,7 +718,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
     );
   }
 
-  String _formatTimeAgo(DateTime dateTime) {
+  String _formatDate(DateTime dateTime) {
     final difference = DateTime.now().difference(dateTime);
     
     if (difference.inDays > 365) {
@@ -710,7 +736,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
     }
   }
 
-  Widget _buildPostImage() {
+  Widget _buildPostImages() {
     if (widget.post.imageUrls == null || widget.post.imageUrls!.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -732,22 +758,43 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
               return CachedNetworkImage(
                 imageUrl: widget.post.imageUrls![index],
                 fit: BoxFit.cover,
-                placeholder: (context, url) => Shimmer.fromColors(
-                  baseColor: Colors.grey[300]!,
-                  highlightColor: Colors.grey[100]!,
-                  child: Container(
-                    color: Colors.white,
+                placeholder: (context, url) => Container(
+                  color: Colors.grey[100],
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.primary.withOpacity(0.5),
+                      strokeWidth: 2,
+                    ),
                   ),
                 ),
-                errorWidget: (context, url, error) => const Icon(Icons.error),
+                errorWidget: (context, url, error) => Container(
+                  color: Colors.grey[100],
+                  child: const Center(
+                    child: Icon(
+                      Icons.error_outline,
+                      color: Colors.grey,
+                      size: 32,
+                    ),
+                  ),
+                ),
               );
             },
           ),
         ),
         // Image indicators
         if (widget.post.imageUrls!.length > 1)
-          Padding(
+          Container(
             padding: const EdgeInsets.only(bottom: 8.0),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Colors.black.withOpacity(0.3),
+                  Colors.transparent,
+                ],
+              ),
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(

@@ -1,4 +1,5 @@
 import 'package:uuid/uuid.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Comment {
   final String id;
@@ -32,7 +33,7 @@ class Comment {
       'id': id,
       'userId': userId,
       'content': content,
-      'createdAt': createdAt.toIso8601String(),
+      'createdAt': Timestamp.fromDate(createdAt),
       'replies': replies.map((reply) => reply.toMap()).toList(),
       'likes': likes,
       'userAvatar': userAvatar,
@@ -46,7 +47,7 @@ class Comment {
       id: map['id'],
       userId: map['userId'],
       content: map['content'],
-      createdAt: DateTime.parse(map['createdAt']),
+      createdAt: (map['createdAt'] as Timestamp).toDate(),
       replies: (map['replies'] as List?)
           ?.map((reply) => Comment.fromMap(reply))
           .toList() ?? [],
@@ -88,7 +89,7 @@ class MissionParticipant {
       'status': status.toString(),
       'submissionContent': submissionContent,
       'submissionImages': submissionImages,
-      'submissionDate': submissionDate?.toIso8601String(),
+      'submissionDate': submissionDate != null ? Timestamp.fromDate(submissionDate!) : null,
     };
   }
 
@@ -105,7 +106,7 @@ class MissionParticipant {
       submissionContent: map['submissionContent'],
       submissionImages: List<String>.from(map['submissionImages'] ?? []),
       submissionDate: map['submissionDate'] != null
-          ? DateTime.parse(map['submissionDate'])
+          ? (map['submissionDate'] as Timestamp).toDate()
           : null,
     );
   }
@@ -169,28 +170,28 @@ class Post {
       'missionDescription': missionDescription,
       'missionReward': missionReward,
       'maxParticipants': maxParticipants,
-      'missionDeadline': missionDeadline?.toIso8601String(),
+      'missionDeadline': missionDeadline != null ? Timestamp.fromDate(missionDeadline!) : null,
       'missionParticipants': missionParticipants?.map((p) => p.toMap()).toList(),
       'type': type.toString(),
       'likes': likes,
       'comments': comments.map((comment) => comment.toMap()).toList(),
-      'createdAt': createdAt.toIso8601String(),
+      'createdAt': Timestamp.fromDate(createdAt),
       'isVerified': isVerified,
     };
   }
 
-  factory Post.fromMap(Map<String, dynamic> map) {
+  factory Post.fromMap(Map<String, dynamic> map, {String? id}) {
     return Post(
-      id: map['id'],
-      userId: map['userId'],
-      content: map['content'],
+      id: id ?? map['id'],
+      userId: map['userId'] ?? map['creatorId'] ?? '',
+      content: map['content'] ?? '',
       imageUrls: List<String>.from(map['imageUrls'] ?? []),
       missionTitle: map['missionTitle'],
       missionDescription: map['missionDescription'],
       missionReward: map['missionReward'],
       maxParticipants: map['maxParticipants'],
       missionDeadline: map['missionDeadline'] != null
-          ? DateTime.parse(map['missionDeadline'])
+          ? (map['missionDeadline'] as Timestamp).toDate()
           : null,
       missionParticipants: (map['missionParticipants'] as List?)
           ?.map((p) => MissionParticipant.fromMap(p))
@@ -203,7 +204,7 @@ class Post {
       comments: (map['comments'] as List?)
           ?.map((comment) => Comment.fromMap(comment))
           .toList() ?? [],
-      createdAt: DateTime.parse(map['createdAt']),
+      createdAt: (map['createdAt'] as Timestamp).toDate(),
       isVerified: map['isVerified'] ?? false,
     );
   }

@@ -1,0 +1,6 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+"Bana her zaman türkçe cevap ver.", "Projede bir işlem yapmanı istediğimde projenin tamamını düşünürek ve tekrar inceleyerek düzenleme yap.", "Kodlara yazdığın açıklama satırlarını her zaman ingilizce yaz.", "Dosyalarda ihtiyaç olan import kodlarını eksik yazma. Bu konuya dikkat et.", "linter hataları yapmamaya özen göster"

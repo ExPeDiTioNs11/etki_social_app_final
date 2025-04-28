@@ -139,29 +139,26 @@ class AuthService {
     String? fullName,
     String? bio,
     String? phoneNumber,
+    String? city,
     String? profileImageUrl,
     String? bannerImageUrl,
-    String? email,
   }) async {
     try {
       final user = _auth.currentUser;
       if (user != null) {
-        final userData = <String, dynamic>{
+        await _firestore.collection('users').doc(user.uid).update({
+          if (username != null) 'username': username,
+          if (fullName != null) 'fullName': fullName,
+          if (bio != null) 'bio': bio,
+          if (phoneNumber != null) 'phoneNumber': phoneNumber,
+          if (city != null) 'city': city,
+          if (profileImageUrl != null) 'profileImage': profileImageUrl,
+          if (bannerImageUrl != null) 'bannerImage': bannerImageUrl,
           'updatedAt': FieldValue.serverTimestamp(),
-        };
-
-        if (username != null) userData['username'] = username;
-        if (fullName != null) userData['fullName'] = fullName;
-        if (bio != null) userData['bio'] = bio;
-        if (phoneNumber != null) userData['phoneNumber'] = phoneNumber;
-        if (profileImageUrl != null) userData['profileImageUrl'] = profileImageUrl;
-        if (bannerImageUrl != null) userData['bannerImageUrl'] = bannerImageUrl;
-        if (email != null) userData['email'] = email;
-
-        await _firestore.collection('users').doc(user.uid).update(userData);
+        });
       }
     } catch (e) {
-      rethrow;
+      throw Exception('Profil güncellenirken bir hata oluştu: $e');
     }
   }
 
@@ -317,5 +314,62 @@ class AuthService {
     } catch (e) {
       rethrow;
     }
+  }
+
+  // Follow a user
+  Future<void> followUser(String targetUserId) async {
+    if (currentUser == null) return;
+
+    final batch = _firestore.batch();
+    final currentUserId = currentUser!.uid;
+
+    // Add to current user's following list
+    final currentUserRef = _firestore.collection('users').doc(currentUserId);
+    batch.update(currentUserRef, {
+      'following': FieldValue.arrayUnion([targetUserId])
+    });
+
+    // Add to target user's followers list
+    final targetUserRef = _firestore.collection('users').doc(targetUserId);
+    batch.update(targetUserRef, {
+      'followers': FieldValue.arrayUnion([currentUserId])
+    });
+
+    await batch.commit();
+  }
+
+  // Unfollow a user
+  Future<void> unfollowUser(String targetUserId) async {
+    if (currentUser == null) return;
+
+    final batch = _firestore.batch();
+    final currentUserId = currentUser!.uid;
+
+    // Remove from current user's following list
+    final currentUserRef = _firestore.collection('users').doc(currentUserId);
+    batch.update(currentUserRef, {
+      'following': FieldValue.arrayRemove([targetUserId])
+    });
+
+    // Remove from target user's followers list
+    final targetUserRef = _firestore.collection('users').doc(targetUserId);
+    batch.update(targetUserRef, {
+      'followers': FieldValue.arrayRemove([currentUserId])
+    });
+
+    await batch.commit();
+  }
+
+  // Check if current user is following a target user
+  Future<bool> isFollowingUser(String targetUserId) async {
+    if (currentUser == null) return false;
+
+    final currentUserDoc = await _firestore
+        .collection('users')
+        .doc(currentUser!.uid)
+        .get();
+
+    final List<dynamic> following = currentUserDoc.data()?['following'] ?? [];
+    return following.contains(targetUserId);
   }
 } 

@@ -6,6 +6,7 @@ class CustomButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool isLoading;
   final Color? backgroundColor;
+  final Color? textColor;
 
   const CustomButton({
     super.key,
@@ -13,6 +14,7 @@ class CustomButton extends StatelessWidget {
     this.onPressed,
     this.isLoading = false,
     this.backgroundColor,
+    this.textColor,
   });
 
   @override
@@ -21,7 +23,7 @@ class CustomButton extends StatelessWidget {
       onPressed: isLoading ? null : onPressed,
       style: ElevatedButton.styleFrom(
         backgroundColor: backgroundColor ?? AppTheme.primaryColor,
-        foregroundColor: Colors.white,
+        foregroundColor: textColor ?? Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -38,9 +40,10 @@ class CustomButton extends StatelessWidget {
             )
           : Text(
               text,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
+                color: textColor ?? Colors.white,
               ),
             ),
     );
