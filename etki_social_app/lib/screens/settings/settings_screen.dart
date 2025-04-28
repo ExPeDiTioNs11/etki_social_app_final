@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../theme/colors.dart';
+import '../../constants/app_colors.dart';
 import '../../services/auth_service.dart';
 import 'edit_profile_screen.dart';
 import 'privacy_screen.dart';
@@ -48,28 +48,98 @@ class SettingsScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ayarlar'),
-        backgroundColor: Colors.white,
+        title: const Text('Ayarlar', style: TextStyle(color: AppColors.textPrimary)),
+        backgroundColor: AppColors.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
       ),
       body: FutureBuilder<double>(
         future: _calculateProfileCompletion(context),
         builder: (context, snapshot) {
-          return ListView(
-            children: [
-              // Profil Tamamlama Butonu - sadece %100 değilse göster
-              if (!snapshot.hasData || snapshot.data! < 100)
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Material(
-                    color: AppColors.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    child: InkWell(
+          return Container(
+            color: AppColors.primaryBackground,
+            child: ListView(
+              children: [
+                // Profil Tamamlama Butonu - sadece %100 değilse göster
+                if (!snapshot.hasData || snapshot.data! < 100)
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Material(
+                      color: AppColors.primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const EditProfileScreen(),
+                            ),
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  Icons.person_add_outlined,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Profilinizi Tamamlayın',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Profilinizi tamamlayarak daha iyi bir deneyim yaşayın',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Icon(
+                                Icons.arrow_forward_ios,
+                                color: AppColors.primary,
+                                size: 16,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // Hesap Ayarları
+                _buildSection(
+                  title: 'Hesap',
+                  items: [
+                    _buildSettingItem(
+                      icon: Icons.person_outline,
+                      title: 'Profil Düzenle',
+                      subtitle: 'Profil bilgilerini güncelle',
                       onTap: () {
                         Navigator.push(
                           context,
@@ -78,209 +148,143 @@ class SettingsScreen extends StatelessWidget {
                           ),
                         );
                       },
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(
-                                Icons.person_add_outlined,
-                                color: Colors.white,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Profilini Tamamla',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Profilini tamamlayarak daha fazla özelliğe erişebilirsin',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Icon(
-                              Icons.arrow_forward_ios,
-                              color: Colors.grey[400],
-                              size: 16,
-                            ),
-                          ],
-                        ),
+                    ),
+                    _buildSettingItem(
+                      icon: Icons.lock_outline,
+                      title: 'Gizlilik',
+                      subtitle: 'Hesap gizlilik ayarları',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const PrivacyScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildSettingItem(
+                      icon: Icons.notifications_outlined,
+                      title: 'Bildirimler',
+                      subtitle: 'Bildirim tercihleri',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const NotificationsScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildSettingItem(
+                      icon: Icons.security_outlined,
+                      title: 'Güvenlik',
+                      subtitle: 'Hesap güvenliği ve şifre',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const SecurityScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+
+                // Uygulama Ayarları
+                _buildSection(
+                  title: 'Uygulama',
+                  items: [
+                    _buildSettingItem(
+                      icon: Icons.language_outlined,
+                      title: 'Dil',
+                      subtitle: 'Türkçe',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const LanguageScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildSettingItem(
+                      icon: Icons.dark_mode_outlined,
+                      title: 'Tema',
+                      subtitle: 'Sistem',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ThemeScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildSettingItem(
+                      icon: Icons.storage_outlined,
+                      title: 'Depolama',
+                      subtitle: 'Önbellek ve veri kullanımı',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const StorageScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildSettingItem(
+                      icon: Icons.help_outline,
+                      title: 'Yardım',
+                      subtitle: 'Yardım merkezi ve destek',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const HelpScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+
+                // Hakkında
+                _buildSection(
+                  title: 'Hakkında',
+                  items: [
+                    _buildSettingItem(
+                      icon: Icons.info_outline,
+                      title: 'Hakkında',
+                      subtitle: 'Uygulama bilgileri',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AboutScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+
+                // Versiyon
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Center(
+                    child: Text(
+                      'Versiyon 1.0.0',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
                       ),
                     ),
                   ),
                 ),
-
-              // Hesap Ayarları
-              _buildSection(
-                title: 'Hesap',
-                items: [
-                  _buildSettingItem(
-                    icon: Icons.person_outline,
-                    title: 'Profil Düzenle',
-                    subtitle: 'Profil bilgilerini güncelle',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const EditProfileScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildSettingItem(
-                    icon: Icons.lock_outline,
-                    title: 'Gizlilik',
-                    subtitle: 'Hesap gizlilik ayarları',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const PrivacyScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildSettingItem(
-                    icon: Icons.notifications_outlined,
-                    title: 'Bildirimler',
-                    subtitle: 'Bildirim tercihleri',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const NotificationsScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildSettingItem(
-                    icon: Icons.security_outlined,
-                    title: 'Güvenlik',
-                    subtitle: 'Hesap güvenliği ve şifre',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const SecurityScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-
-              // Uygulama Ayarları
-              _buildSection(
-                title: 'Uygulama',
-                items: [
-                  _buildSettingItem(
-                    icon: Icons.language_outlined,
-                    title: 'Dil',
-                    subtitle: 'Türkçe',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const LanguageScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildSettingItem(
-                    icon: Icons.dark_mode_outlined,
-                    title: 'Tema',
-                    subtitle: 'Sistem',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ThemeScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildSettingItem(
-                    icon: Icons.storage_outlined,
-                    title: 'Depolama',
-                    subtitle: 'Önbellek ve veri kullanımı',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const StorageScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildSettingItem(
-                    icon: Icons.help_outline,
-                    title: 'Yardım',
-                    subtitle: 'Yardım merkezi ve destek',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const HelpScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-
-              // Hakkında
-              _buildSection(
-                title: 'Hakkında',
-                items: [
-                  _buildSettingItem(
-                    icon: Icons.info_outline,
-                    title: 'Hakkında',
-                    subtitle: 'Uygulama bilgileri',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const AboutScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-
-              // Versiyon
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Center(
-                  child: Text(
-                    'Versiyon 1.0.0',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           );
         },
       ),
@@ -299,7 +303,7 @@ class SettingsScreen extends StatelessWidget {
           child: Text(
             title,
             style: TextStyle(
-              color: Colors.grey[600],
+              color: AppColors.textSecondary,
               fontWeight: FontWeight.bold,
               fontSize: 14,
             ),
@@ -327,12 +331,12 @@ class SettingsScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
+                  color: AppColors.iconBackground,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
                   icon,
-                  color: AppColors.primary,
+                  color: Colors.white,
                   size: 20,
                 ),
               ),
@@ -346,6 +350,7 @@ class SettingsScreen extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
+                        color: AppColors.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -353,7 +358,7 @@ class SettingsScreen extends StatelessWidget {
                       subtitle,
                       style: TextStyle(
                         fontSize: 14,
-                        color: Colors.grey[600],
+                        color: AppColors.textSecondary,
                       ),
                     ),
                   ],
@@ -361,7 +366,7 @@ class SettingsScreen extends StatelessWidget {
               ),
               Icon(
                 Icons.chevron_right,
-                color: Colors.grey[400],
+                color: AppColors.divider,
               ),
             ],
           ),

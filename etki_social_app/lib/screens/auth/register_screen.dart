@@ -5,7 +5,7 @@ import 'package:etki_social_app/widgets/custom_text_field.dart';
 import 'package:etki_social_app/widgets/custom_button.dart';
 import 'package:etki_social_app/widgets/date_picker_field.dart';
 import 'package:etki_social_app/widgets/gender_selector.dart';
-import 'package:etki_social_app/utils/theme.dart';
+import 'package:etki_social_app/constants/app_colors.dart';
 import 'package:go_router/go_router.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -193,44 +193,39 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: AppColors.primaryBackground,
       appBar: AppBar(
         title: const Text(
           'Bize Katıl',
           style: TextStyle(
-            color: Colors.white,
+            color: AppColors.textPrimary,
             fontWeight: FontWeight.w900,
             fontSize: 20,
           ),
         ),
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.surface,
         elevation: 0,
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: AppTheme.primaryGradient,
-          ),
-        ),
       ),
       body: SafeArea(
         child: Form(
           key: _formKey,
-            child: Column(
-              children: [
+          child: Column(
+            children: [
               // Modern Step Indicator
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 decoration: BoxDecoration(
-                  gradient: AppTheme.primaryGradient,
+                  color: AppColors.surface,
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.primaryColor.withOpacity(0.2),
+                      color: AppColors.primary.withOpacity(0.1),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
                   ],
                 ),
-                  child: Column(
-                    children: [
+                child: Column(
+                  children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: List.generate(
@@ -241,21 +236,21 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                             height: 4,
                             decoration: BoxDecoration(
                               color: index <= _currentStep
-                                  ? AppTheme.secondaryColor
-                                  : Colors.white.withOpacity(0.3),
+                                  ? AppColors.primary
+                                  : AppColors.divider,
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
                         ),
                       ),
-                      ),
-                      const SizedBox(height: 16),
+                    ),
+                    const SizedBox(height: 16),
                     Text(
                       _stepTitles[_currentStep],
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: AppColors.textPrimary,
                       ),
                     ),
                   ],
@@ -280,27 +275,26 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                                 validator: Validators.validateUsername,
                                 prefixIcon: Icons.person_outline,
                               ),
-                      ),
-                      const SizedBox(height: 16),
+                            ),
+                            const SizedBox(height: 16),
                             _buildAnimatedFormField(
                               CustomTextField(
-                        controller: _phoneController,
+                                controller: _phoneController,
                                 label: 'Telefon Numarası',
                                 isPhoneNumber: true,
                                 maxLength: 14,
                                 prefixIcon: Icons.phone_outlined,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
                                     return 'Telefon numarası gereklidir';
-                          }
+                                  }
                                   if (value.replaceAll(RegExp(r'[^\d]'), '').length != 10) {
-                            return 'Geçerli bir telefon numarası giriniz';
-                          }
-                          return null;
-                        },
+                                    return 'Geçerli bir telefon numarası giriniz';
+                                  }
+                                  return null;
+                                },
                               ),
-                      ),
-                      const SizedBox(height: 16),
+                            ),
                             _buildAnimatedFormField(
                               DatePickerField(
                                 controller: _birthDateController,
@@ -308,9 +302,9 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                                 onDateSelected: (date) {
                                   setState(() {});
                                 },
-                        ),
-                      ),
-                      const SizedBox(height: 16),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
                             _buildAnimatedFormField(
                               GenderSelector(
                                 onGenderSelected: (gender) {
@@ -322,10 +316,10 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Text(
+                                Text(
                                   'Zaten hesabın var mı? ',
                                   style: TextStyle(
-                                    color: AppTheme.textSecondary,
+                                    color: AppColors.textSecondary,
                                     fontSize: 14,
                                   ),
                                 ),
@@ -334,12 +328,12 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                                   child: Text(
                                     'Giriş Yap',
                                     style: TextStyle(
-                                      color: AppTheme.primaryColor,
+                                      color: AppColors.primary,
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                            ),
+                                ),
                               ],
                             ),
                           ] else if (_currentStep == 1) ...[
@@ -360,20 +354,20 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                                 isPassword: true,
                                 validator: Validators.validatePassword,
                                 prefixIcon: Icons.lock_outline,
+                              ),
                             ),
-                          ),
                             const SizedBox(height: 16),
                             _buildAnimatedFormField(
                               CustomTextField(
                                 controller: _confirmPasswordController,
                                 label: 'Şifre Tekrar',
                                 isPassword: true,
-                        validator: (value) {
+                                validator: (value) {
                                   if (value != _passwordController.text) {
                                     return 'Şifreler eşleşmiyor';
-                          }
-                          return null;
-                        },
+                                  }
+                                  return null;
+                                },
                                 prefixIcon: Icons.lock_outline,
                               ),
                             ),
@@ -381,47 +375,47 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                             Container(
                               padding: const EdgeInsets.all(32),
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: AppColors.surface,
                                 borderRadius: BorderRadius.circular(24),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppTheme.primaryColor.withOpacity(0.1),
+                                    color: AppColors.primary.withOpacity(0.1),
                                     blurRadius: 30,
                                     offset: const Offset(0, 15),
                                   ),
                                 ],
                               ),
                               child: Column(
-                        children: [
+                                children: [
                                   Container(
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.primaryColor.withOpacity(0.1),
+                                      color: AppColors.primary.withOpacity(0.1),
                                       shape: BoxShape.circle,
                                     ),
                                     child: Icon(
                                       Icons.check_circle_outline,
                                       size: 48,
-                                      color: AppTheme.primaryColor,
+                                      color: AppColors.primary,
                                     ),
                                   ),
                                   const SizedBox(height: 24),
-                                  const Text(
+                                  Text(
                                     'Hesabınızı Oluşturmaya Hazırsınız!',
                                     style: TextStyle(
                                       fontSize: 20,
                                       fontWeight: FontWeight.bold,
-                                      color: AppTheme.textPrimary,
+                                      color: AppColors.textPrimary,
                                     ),
                                   ),
                                   const SizedBox(height: 8),
-                                  const Text(
+                                  Text(
                                     'Lütfen bilgilerinizi kontrol edin',
                                     style: TextStyle(
                                       fontSize: 16,
-                                      color: AppTheme.textSecondary,
-                                ),
-                      ),
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
                                   const SizedBox(height: 32),
                                   _buildAnimatedReviewItem(
                                     'Kullanıcı Adı',
@@ -463,10 +457,10 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                                  color: Colors.white,
+                  color: AppColors.surface,
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      color: AppColors.primary.withOpacity(0.1),
                       blurRadius: 20,
                       offset: const Offset(0, -10),
                     ),
@@ -479,7 +473,7 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                         child: CustomButton(
                           text: 'Geri',
                           onPressed: _previousStep,
-                          backgroundColor: AppTheme.secondaryColor,
+                          backgroundColor: AppColors.secondary,
                         ),
                       ),
                     if (_currentStep > 0) const SizedBox(width: 16),
@@ -488,14 +482,15 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                         text: _currentStep == _totalSteps - 1 ? 'Kayıt Ol' : 'İleri',
                         onPressed: _validateCurrentStep() ? _nextStep : null,
                         isLoading: _isLoading,
+                        backgroundColor: AppColors.primary,
                       ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
+        ),
       ),
     );
   }
@@ -531,10 +526,10 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: AppTheme.divider,
+            color: AppColors.divider,
             width: 1,
           ),
         ),
@@ -543,13 +538,13 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.1),
+                color: AppColors.primary.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
                 icon,
                 size: 20,
-                color: AppTheme.primaryColor,
+                color: AppColors.primary,
               ),
             ),
             const SizedBox(width: 16),
@@ -559,18 +554,18 @@ class _RegisterScreenState extends State<RegisterScreen> with SingleTickerProvid
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
-                      color: AppTheme.textSecondary,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     value,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
-                      color: AppTheme.textPrimary,
+                      color: AppColors.textPrimary,
                     ),
                   ),
                 ],

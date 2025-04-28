@@ -267,6 +267,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       const SizedBox(height: 24),
                       ElevatedButton(
                         onPressed: _isLoading ? null : _handleLogin,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(double.infinity, 56),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
                         child: _isLoading
                             ? const SizedBox(
                                 height: 20,
@@ -283,6 +291,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         onPressed: () {
                           context.go('/register');
                         },
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.secondary,
+                        ),
                         child: const Text('Hesabınız yok mu? Kayıt olun'),
                       ),
                     ],

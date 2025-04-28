@@ -11,7 +11,7 @@ class AppTheme {
       background: AppColors.background,
       error: AppColors.error,
       onPrimary: Colors.white,
-      onSecondary: Colors.black,
+      onSecondary: Colors.white,
       onSurface: AppColors.textPrimary,
       onBackground: AppColors.textPrimary,
       onError: Colors.white,
@@ -48,7 +48,7 @@ class AppTheme {
       ),
       bodyMedium: TextStyle(
         fontSize: 14,
-        color: AppColors.textPrimary,
+        color: AppColors.textSecondary,
       ),
       labelLarge: TextStyle(
         fontSize: 16,
@@ -58,7 +58,7 @@ class AppTheme {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: Colors.white,
+      fillColor: AppColors.surface,
       contentPadding: const EdgeInsets.symmetric(
         horizontal: 16,
         vertical: 16,
@@ -112,7 +112,7 @@ class AppTheme {
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: AppColors.primary,
+        foregroundColor: AppColors.secondary,
         textStyle: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,

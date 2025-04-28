@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:etki_social_app/utils/theme.dart';
+import 'package:etki_social_app/constants/app_colors.dart';
 import 'package:intl/intl.dart';
 
 class DatePickerField extends StatelessWidget {
@@ -24,10 +24,10 @@ class DatePickerField extends StatelessWidget {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: ColorScheme.light(
-              primary: AppTheme.primaryColor,
+              primary: AppColors.primary,
               onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: AppTheme.textPrimary,
+              surface: AppColors.surface,
+              onSurface: AppColors.textPrimary,
             ),
           ),
           child: child!,
@@ -49,10 +49,10 @@ class DatePickerField extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: AppTheme.divider,
+            color: AppColors.divider,
             width: 1,
           ),
         ),
@@ -61,9 +61,9 @@ class DatePickerField extends StatelessWidget {
           children: [
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
-                color: AppTheme.textSecondary,
+                color: AppColors.textSecondary,
               ),
             ),
             const SizedBox(height: 4),
@@ -72,7 +72,7 @@ class DatePickerField extends StatelessWidget {
                 Icon(
                   Icons.calendar_today,
                   size: 20,
-                  color: AppTheme.primaryColor,
+                  color: AppColors.primary,
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -81,8 +81,8 @@ class DatePickerField extends StatelessWidget {
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: controller.text.isEmpty
-                        ? AppTheme.textLight
-                        : AppTheme.primaryColor,
+                        ? AppColors.textSecondary
+                        : AppColors.textPrimary,
                   ),
                 ),
               ],

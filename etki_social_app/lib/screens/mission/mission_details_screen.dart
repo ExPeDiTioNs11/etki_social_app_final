@@ -1,7 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../models/post_model.dart';
-import '../../theme/colors.dart';
+import 'package:etki_social_app/constants/app_colors.dart';
 import 'package:etki_social_app/widgets/post_card.dart';
 
 class MissionDetailsScreen extends StatefulWidget {
@@ -35,83 +35,49 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> with Single
     super.dispose();
   }
 
-  Widget _buildCoinIcon() {
-    return SizedBox(
-      width: 40,
-      height: 40,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Rotating stars
-          AnimatedBuilder(
-            animation: _starController,
-            builder: (context, child) {
-              return Stack(
-                alignment: Alignment.center,
-                children: List.generate(8, (index) {
-                  final baseAngle = (index / 8) * 2 * pi;
-                  final randomOffset = _randomOffsets[index];
-                  final oscillation = sin(_starController.value * 2 * pi + randomOffset);
-                  final distance = 15 + oscillation * 3;
-                  final starRotation = _starController.value * 4 * pi + randomOffset;
-                  final opacity = 0.3 + (0.7 * (sin(_starController.value * 2 * pi + randomOffset) + 1) / 2);
-                  
-                  return Transform.translate(
-                    offset: Offset(
-                      cos(baseAngle + _starController.value * pi) * distance,
-                      sin(baseAngle + _starController.value * pi) * distance,
-                    ),
-                    child: Transform.rotate(
-                      angle: starRotation,
-                      child: Icon(
-                        Icons.star,
-                        size: 8,
-                        color: Colors.amber.withOpacity(opacity),
-                      ),
-                    ),
-                  );
-                }),
-              );
-            },
-          ),
-          // Coin background glow
-          Container(
-            width: 22,
-            height: 22,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.amber[300]!.withOpacity(0.5),
-                  blurRadius: 8,
-                  spreadRadius: 2,
-                ),
-              ],
-            ),
-          ),
-          // Main coin icon
-          const Icon(
-            Icons.circle,
-            size: 22,
-            color: Colors.amber,
-          ),
-          // Coin symbol
-          const Text(
-            '₺',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              shadows: [
-                Shadow(
-                  color: Colors.black26,
-                  offset: Offset(0, 1),
-                  blurRadius: 2,
-                ),
-              ],
-            ),
+  Widget _buildCoinIcon({double size = 16}) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          colors: [
+            Colors.amber,
+            Colors.amber.shade600,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.amber.withOpacity(0.3),
+            blurRadius: 8,
+            spreadRadius: 2,
           ),
         ],
+      ),
+      child: Center(
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Text(
+              '₺',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: size * 0.7,
+                fontWeight: FontWeight.bold,
+                shadows: [
+                  Shadow(
+                    color: Colors.black26,
+                    offset: const Offset(0, 1),
+                    blurRadius: 2,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -121,7 +87,13 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> with Single
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Görev Detayları'),
+        title: const Text(
+          'Görev Detayları',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -144,7 +116,7 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> with Single
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: AppColors.primary.withOpacity(0.08),
                     blurRadius: 20,
                     offset: const Offset(0, 4),
                   ),
@@ -161,12 +133,26 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> with Single
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.1),
+                            gradient: LinearGradient(
+                              colors: [
+                                AppColors.primary,
+                                AppColors.primary.withOpacity(0.8),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
                             borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withOpacity(0.2),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
-                          child: Icon(
+                          child: const Icon(
                             Icons.assignment,
-                          color: AppColors.primary,
+                            color: Colors.white,
                             size: 24,
                           ),
                         ),
@@ -180,25 +166,33 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> with Single
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
-                        ),
-                  ),
+                                ),
+                              ),
                               const SizedBox(height: 4),
-                  Text(
-                                '${widget.post.missionParticipants?.length ?? 0} Katılımcı',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[600],
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '${widget.post.missionParticipants?.length ?? 0} Katılımcı',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                  ),
-                ],
-              ),
-            ),
                       ],
                     ),
                   ),
 
                   // Mission Description
-            Padding(
+                  Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
                       widget.post.content,
@@ -216,11 +210,18 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> with Single
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.grey[50],
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.primary.withOpacity(0.05),
+                          AppColors.primary.withOpacity(0.02),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
                       borderRadius: const BorderRadius.vertical(
                         bottom: Radius.circular(20),
+                      ),
                     ),
-                  ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
@@ -248,125 +249,136 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> with Single
             ),
             
             // Participants Section
-            if ((widget.post.missionParticipants?.length ?? 0) > 0) ...[
+            if (widget.post.missionParticipants?.isNotEmpty ?? false)
               Container(
-                margin: const EdgeInsets.all(16),
+                margin: const EdgeInsets.symmetric(horizontal: 16),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: AppColors.primary.withOpacity(0.08),
                       blurRadius: 20,
                       offset: const Offset(0, 4),
                     ),
                   ],
                 ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
                       'Katılımcılar',
-                        style: TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        fontWeight: FontWeight.bold,
                       ),
+                    ),
                     const SizedBox(height: 12),
-                    SizedBox(
-                      height: 60,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: widget.post.missionParticipants!.length,
-                        itemBuilder: (context, index) {
-                          final participant = widget.post.missionParticipants![index];
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 12),
-                            child: Column(
-                              children: [
-                                Stack(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 20,
-                                      backgroundColor: _getStatusColor(participant.status),
-                                      child: Text(
-                                        (participant.username ?? participant.userId)[0].toUpperCase(),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                    ...widget.post.missionParticipants!.map((participant) {
+                      final status = participant.status;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: _getStatusColor(status).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _getStatusColor(status).withOpacity(0.2),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 16,
+                              backgroundColor: _getStatusColor(status).withOpacity(0.2),
+                              child: Text(
+                                participant.username?.toUpperCase().substring(0, 1) ?? 'U',
+                                style: TextStyle(
+                                  color: _getStatusColor(status),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    participant.username ?? 'Anonim Kullanıcı',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: _getStatusColor(status).withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      status.toString().split('.').last,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: _getStatusColor(status),
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
-                                    Positioned(
-                                      right: 0,
-                                      bottom: 0,
-                                      child: Container(
-                                        padding: const EdgeInsets.all(2),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          shape: BoxShape.circle,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(0.1),
-                                              blurRadius: 4,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: Icon(
-                                          Icons.circle,
-                                          size: 8,
-                                          color: _getStatusColor(participant.status),
-                                        ),
-                                      ),
-                                    ),
-                    ],
-                  ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  participant.username ?? participant.userId,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey[600],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
-                          );
-                        },
-                      ),
-            ),
-          ],
-        ),
-              ),
-            ],
-            
-            // Participate Button
+
+            // Join Button
             Padding(
               padding: const EdgeInsets.all(16),
               child: SizedBox(
                 width: double.infinity,
-        child: ElevatedButton(
-          onPressed: () {
+                child: ElevatedButton(
+                  onPressed: () {
                     // TODO: Implement mission participation
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            elevation: 0,
-          ),
-          child: const Text(
-            'Göreve Katıl',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ).copyWith(
+                    backgroundColor: MaterialStateProperty.resolveWith((states) {
+                      if (states.contains(MaterialState.pressed)) {
+                        return AppColors.primary.withOpacity(0.9);
+                      }
+                      return AppColors.primary;
+                    }),
+                    elevation: MaterialStateProperty.resolveWith((states) {
+                      if (states.contains(MaterialState.pressed)) {
+                        return 0;
+                      }
+                      return 4;
+                    }),
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: const Text(
+                      'Göreve Katıl',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -384,10 +396,17 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> with Single
   }) {
     return Column(
       children: [
-        Icon(
-          icon,
-          size: 24,
-          color: isCoin ? Colors.amber : Colors.grey[600],
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: isCoin ? Colors.amber.withOpacity(0.1) : AppColors.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(
+            icon,
+            size: 20,
+            color: isCoin ? Colors.amber : AppColors.primary,
+          ),
         ),
         const SizedBox(height: 8),
         Text(
@@ -395,34 +414,36 @@ class _MissionDetailsScreenState extends State<MissionDetailsScreen> with Single
           style: TextStyle(
             fontSize: 12,
             color: Colors.grey[600],
+            fontWeight: FontWeight.w500,
           ),
         ),
         const SizedBox(height: 4),
         if (isCoin)
           Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-              _buildCoinIcon(),
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildCoinIcon(size: 20),
               const SizedBox(width: 4),
-          Text(
+              Text(
                 value,
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: Colors.amber,
-            ),
-          ),
+                ),
+              ),
             ],
           )
         else
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
+              color: AppColors.primary,
             ),
           ),
-        ],
+      ],
     );
   }
 

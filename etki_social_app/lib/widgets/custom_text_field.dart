@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:etki_social_app/utils/theme.dart';
-import 'package:flutter/services.dart';
 import 'package:etki_social_app/constants/app_colors.dart';
+import 'package:flutter/services.dart';
 
 class CustomTextField extends StatelessWidget {
   final TextEditingController controller;
@@ -75,7 +74,7 @@ class CustomTextField extends StatelessWidget {
             ]
           : null,
       style: TextStyle(
-        color: AppTheme.primaryColor,
+        color: AppColors.textPrimary,
         fontWeight: FontWeight.bold,
         fontSize: 16,
       ),
@@ -84,7 +83,7 @@ class CustomTextField extends StatelessWidget {
         prefixIcon: prefixIcon != null
             ? Icon(
                 prefixIcon,
-                color: prefixIconColor ?? AppTheme.primaryColor,
+                color: prefixIconColor ?? AppColors.primary,
               )
             : null,
         prefix: isPhoneNumber
@@ -93,7 +92,7 @@ class CustomTextField extends StatelessWidget {
                 child: Text(
                   '+90',
                   style: TextStyle(
-                    color: AppTheme.primaryColor,
+                    color: AppColors.primary,
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                   ),
@@ -104,29 +103,29 @@ class CustomTextField extends StatelessWidget {
         counterText: '',
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppTheme.divider),
+          borderSide: BorderSide(color: AppColors.primary.withOpacity(0.2)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppTheme.divider),
+          borderSide: BorderSide(color: AppColors.primary.withOpacity(0.2)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppTheme.primaryColor),
+          borderSide: BorderSide(color: AppColors.primary),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppTheme.error),
+          borderSide: const BorderSide(color: AppColors.error),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppTheme.error),
+          borderSide: const BorderSide(color: AppColors.error),
         ),
-        labelStyle: const TextStyle(
-          color: AppTheme.textSecondary,
+        labelStyle: TextStyle(
+          color: AppColors.textSecondary,
         ),
         filled: true,
-        fillColor: Colors.grey[50],
+        fillColor: AppColors.surface,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
     );

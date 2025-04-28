@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../../theme/colors.dart';
+import '../../constants/app_colors.dart';
 import 'chat_screen.dart';
 import 'dart:math';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../services/auth_service.dart';
 
 enum MessageCategory {
   all,
@@ -43,181 +45,39 @@ class MessagesScreen extends StatefulWidget {
 class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProviderStateMixin {
   MessageCategory _selectedCategory = MessageCategory.all;
   final TextEditingController _searchController = TextEditingController();
-  final TextEditingController _newMessageSearchController = TextEditingController();
   String _searchQuery = '';
-  String _newMessageSearchQuery = '';
   late AnimationController _animationController;
   late Animation<double> _animation;
-
-  // Example messages data
-  final List<Message> _messages = [
-    Message(
-      userId: '1',
-      userName: 'Ahmet Yılmaz',
-      userImage: 'https://picsum.photos/200',
-      lastMessage: 'Projeyi ne zaman tamamlayabiliriz?',
-      lastMessageTime: DateTime.now().subtract(const Duration(minutes: 5)),
-      isUnread: true,
-    ),
-    Message(
-      userId: '2',
-      userName: 'Ayşe Demir',
-      userImage: 'https://picsum.photos/201',
-      lastMessage: 'Görev tamamlandı, kontrol edebilir misin?',
-      lastMessageTime: DateTime.now().subtract(const Duration(hours: 1)),
-      isUnread: false,
-    ),
-    Message(
-      userId: '3',
-      userName: 'Mehmet Kaya',
-      userImage: 'https://picsum.photos/202',
-      lastMessage: 'Yeni bir sosyal sorumluluk projesi başlatıyoruz',
-      lastMessageTime: DateTime.now().subtract(const Duration(hours: 2)),
-      isUnread: true,
-    ),
-    Message(
-      userId: '4',
-      userName: 'Flutter Türkiye',
-      userImage: 'https://picsum.photos/203',
-      lastMessage: 'Yeni bir etkinlik planlıyoruz',
-      lastMessageTime: DateTime.now().subtract(const Duration(hours: 3)),
-      isUnread: true,
-      isGroup: true,
-    ),
-    // Arşivlenmiş mesajlar
-    Message(
-      userId: '5',
-      userName: 'Eski Proje Ekibi',
-      userImage: 'https://picsum.photos/204',
-      lastMessage: 'Proje dosyaları arşivlendi',
-      lastMessageTime: DateTime.now().subtract(const Duration(days: 5)),
-      isUnread: false,
-      isGroup: true,
-      isArchived: true,
-    ),
-    Message(
-      userId: '6',
-      userName: 'Yaz Stajı',
-      userImage: 'https://picsum.photos/205',
-      lastMessage: 'Staj değerlendirme formları tamamlandı',
-      lastMessageTime: DateTime.now().subtract(const Duration(days: 10)),
-      isUnread: false,
-      isGroup: true,
-      isArchived: true,
-    ),
-    Message(
-      userId: '7',
-      userName: 'Eski İş Arkadaşı',
-      userImage: 'https://picsum.photos/206',
-      lastMessage: 'Referans mektubu hazır',
-      lastMessageTime: DateTime.now().subtract(const Duration(days: 15)),
-      isUnread: false,
-      isArchived: true,
-    ),
-  ];
-
-  // Örnek takip edilen kullanıcılar
-  final List<Map<String, dynamic>> _followedUsers = [
-    {
-      'id': '1',
-      'name': 'Ahmet Yılmaz',
-      'username': '@ahmetyilmaz',
-      'image': 'https://picsum.photos/200',
-      'isOnline': true,
-    },
-    {
-      'id': '2',
-      'name': 'Ayşe Demir',
-      'username': '@aysedemir',
-      'image': 'https://picsum.photos/201',
-      'isOnline': false,
-    },
-    {
-      'id': '3',
-      'name': 'Mehmet Kaya',
-      'username': '@mehmetkaya',
-      'image': 'https://picsum.photos/202',
-      'isOnline': true,
-    },
-    {
-      'id': '4',
-      'name': 'Zeynep Şahin',
-      'username': '@zeynepsahin',
-      'image': 'https://picsum.photos/203',
-      'isOnline': false,
-    },
-    {
-      'id': '5',
-      'name': 'Can Öztürk',
-      'username': '@canozturk',
-      'image': 'https://picsum.photos/204',
-      'isOnline': true,
-    },
-  ];
-
-  List<Message> get _filteredMessages {
-    return _messages.where((message) {
-      final matchesCategory = 
-          (_selectedCategory == MessageCategory.all && !message.isArchived) ||
-          (_selectedCategory == MessageCategory.unread && message.isUnread && !message.isArchived) ||
-          (_selectedCategory == MessageCategory.group && message.isGroup && !message.isArchived) ||
-          (_selectedCategory == MessageCategory.archived && message.isArchived);
-
-      final matchesSearch = _searchQuery.isEmpty ||
-          message.userName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          message.lastMessage.toLowerCase().contains(_searchQuery.toLowerCase());
-
-      return matchesCategory && matchesSearch;
-    }).toList();
-  }
-
-  List<Map<String, dynamic>> get _filteredFollowedUsers {
-    if (_newMessageSearchQuery.isEmpty) {
-      return _followedUsers;
-    }
-    
-    final query = _newMessageSearchQuery.toLowerCase();
-    return _followedUsers.where((user) {
-      final name = user['name'].toString().toLowerCase();
-      final username = user['username'].toString().toLowerCase();
-      return name.contains(query) || username.contains(query);
-    }).toList();
-  }
-
-  String _getTimeAgo(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}d';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours}s';
-    } else {
-      return '${difference.inDays}g';
-    }
-  }
+  double _dragDistance = 0.0;
+  final AuthService _authService = AuthService();
+  List<Map<String, dynamic>> _followedUsers = [];
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat(reverse: true);
-
-    _animation = Tween<double>(
-      begin: -0.1,
-      end: 0.1,
-    ).animate(CurvedAnimation(
+      duration: const Duration(milliseconds: 300),
+    );
+    _animation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
       parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
+        curve: Curves.easeOut,
+      ),
+    );
+
+    // Arama değişikliklerini dinle
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text;
+      });
+    });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
-    _newMessageSearchController.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -225,56 +85,63 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.primaryBackground,
       appBar: AppBar(
-        title: const Text('Mesajlar', style: TextStyle(color: Colors.white)),
-        backgroundColor: AppColors.primary,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: Column(
-        children: [
-          // Search Bar
-          Container(
-            margin: const EdgeInsets.all(16.0),
+        title: Text(
+          'Mesajlar',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+            fontSize: 20,
+          ),
+        ),
+        backgroundColor: AppColors.surface,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  spreadRadius: 1,
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(Icons.add, color: AppColors.primary, size: 18),
+            ),
+            onPressed: () => _showNewMessageModal(),
                 ),
               ],
             ),
+      body: Column(
+        children: [
+          // Arama Çubuğu
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Mesajlarda ara...',
-                hintStyle: TextStyle(color: Colors.grey[400]),
-                prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
+                hintStyle: TextStyle(color: AppColors.textSecondary),
+                prefixIcon: Icon(Icons.search, color: AppColors.primary),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
-                        icon: Icon(Icons.clear, color: Colors.grey[400]),
+                        icon: Icon(Icons.clear, color: AppColors.primary),
                         onPressed: () {
                           _searchController.clear();
-                          setState(() {
-                            _searchQuery = '';
-                          });
                         },
                       )
                     : null,
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                filled: true,
+                fillColor: AppColors.surface,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
               ),
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
             ),
           ),
-          // Categories
+
+          // Kategori Filtreleri
           Container(
             height: 50,
             margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -292,33 +159,28 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
                   },
                   child: Container(
                     margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
-                      color: isSelected ? AppColors.primary : Colors.white,
+                      gradient: isSelected 
+                          ? LinearGradient(
+                              colors: [AppColors.primary, AppColors.primaryLight],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            )
+                          : null,
+                      color: isSelected ? null : AppColors.surface,
                       borderRadius: BorderRadius.circular(25),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
+                          color: AppColors.shadow.withOpacity(0.1),
                           spreadRadius: 1,
                           blurRadius: 5,
                           offset: const Offset(0, 2),
                         ),
                       ],
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (category == MessageCategory.unread)
-                          Container(
-                            width: 8,
-                            height: 8,
-                            margin: const EdgeInsets.only(right: 6),
-                            decoration: BoxDecoration(
-                              color: isSelected ? Colors.white : AppColors.primary,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        Text(
+                    child: Center(
+                      child: Text(
                           category == MessageCategory.all
                               ? 'Tümü'
                               : category == MessageCategory.unread
@@ -327,194 +189,67 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
                                       ? 'Gruplar'
                                       : 'Arşivlenmiş',
                           style: TextStyle(
-                            color: isSelected ? Colors.white : Colors.black87,
+                          color: isSelected ? AppColors.surface : AppColors.textPrimary,
                             fontWeight: FontWeight.w500,
+                          fontSize: 13,
                           ),
                         ),
-                      ],
                     ),
                   ),
                 );
               },
             ),
           ),
-          const SizedBox(height: 8),
-          // Messages List
+
+          const SizedBox(height: 16),
+
+          // Mesaj Listesi
           Expanded(
-            child: ListView.builder(
-              itemCount: _filteredMessages.length,
-              itemBuilder: (context, index) {
-                final message = _filteredMessages[index];
-                return Dismissible(
-                  key: Key(message.userId),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 20),
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(12),
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('chats')
+                  .where('participants', arrayContains: _authService.currentUser?.uid ?? '')
+                  .orderBy('updatedAt', descending: true)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
                     ),
-                    child: const Icon(
-                      Icons.delete,
-                      color: Colors.white,
-                      size: 30,
-                    ),
-                  ),
-                  confirmDismiss: (direction) async {
-                    return await showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Mesajları Sil'),
-                        content: Text('${message.userName} ile olan tüm mesajlarınızı silmek istediğinize emin misiniz?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(false),
-                            child: const Text('İptal'),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(true),
-                            child: const Text(
-                              'Sil',
-                              style: TextStyle(color: Colors.red),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                  onDismissed: (direction) {
-                    setState(() {
-                      _messages.removeAt(index);
-                    });
-                  },
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      radius: 28,
-                      backgroundImage: CachedNetworkImageProvider(message.userImage),
-                    ),
-                    title: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            message.userName,
-                            style: TextStyle(
-                              fontWeight: message.isUnread ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          _getTimeAgo(message.lastMessageTime),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                            fontWeight: message.isUnread ? FontWeight.bold : FontWeight.normal,
+                  );
+                }
+
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return _buildEmptyState();
+                }
+
+                final chats = snapshot.data!.docs;
+                final filteredChats = chats.where((chat) {
+                  final data = chat.data() as Map<String, dynamic>;
+                  
+                  // Önce kategori filtrelemesi yap
+                  if (!_filterChat(data)) return false;
+
+                  // Eğer arama sorgusu varsa, mesaj içeriğinde ara
+                  if (_searchQuery.isNotEmpty) {
+                    final searchLower = _searchQuery.toLowerCase();
+                    final lastMessage = (data['lastMessage'] ?? '').toString().toLowerCase();
+                    return lastMessage.contains(searchLower);
+                  }
+
+                  return true;
+                }).toList();
+
+                if (filteredChats.isEmpty) {
+                  return _buildEmptyState();
+                }
+
+                return _buildChatList(filteredChats);
+              },
                           ),
                         ),
                       ],
-                    ),
-                    subtitle: Text(
-                      message.lastMessage,
-                      style: TextStyle(
-                        color: message.isUnread ? Colors.black87 : Colors.grey[600],
-                        fontWeight: message.isUnread ? FontWeight.w500 : FontWeight.normal,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ChatScreen(
-                            isGroup: message.isGroup,
-                            chatId: message.userId,
-                            chatName: message.userName,
-                            chatImage: message.userImage,
-                            participants: [],
-                          ),
-                        ),
-                      );
-                    },
-                    onLongPress: () {
-                      _showMessageOptionsModal(context, message);
-                    },
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _showNewMessageModal(context);
-        },
-        backgroundColor: AppColors.primary,
-        child: AnimatedBuilder(
-          animation: _animation,
-          builder: (context, child) {
-            return Stack(
-              alignment: Alignment.center,
-              children: [
-                // Rüzgar çizgileri
-                if (_animation.value > 0)
-                  Positioned(
-                    left: 0,
-                    child: Opacity(
-                      opacity: _animation.value.abs() * 2,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: List.generate(3, (index) {
-                          return Transform.translate(
-                            offset: Offset(0, sin(index * 0.5 + _animation.value * 2) * 2),
-                            child: Container(
-                              width: 2,
-                              height: 8,
-                              margin: const EdgeInsets.only(right: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(1),
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
-                    ),
-                  ),
-                if (_animation.value < 0)
-                  Positioned(
-                    right: 0,
-                    child: Opacity(
-                      opacity: _animation.value.abs() * 2,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: List.generate(3, (index) {
-                          return Transform.translate(
-                            offset: Offset(0, sin(index * 0.5 + _animation.value * 2) * 2),
-                            child: Container(
-                              width: 2,
-                              height: 8,
-                              margin: const EdgeInsets.only(left: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(1),
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
-                    ),
-                  ),
-                // Kağıt uçak ikonu
-                Transform.rotate(
-                  angle: _animation.value,
-                  child: const Icon(Icons.send_rounded),
-                ),
-              ],
-            );
-          },
-        ),
       ),
     );
   }
@@ -630,271 +365,591 @@ class _MessagesScreenState extends State<MessagesScreen> with SingleTickerProvid
     );
   }
 
-  void _showNewMessageModal(BuildContext context) {
+  void _showNewMessageModal() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) {
-          return Container(
-            height: MediaQuery.of(context).size.height * 0.85,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-            ),
-            child: Column(
-              children: [
-                // Modal başlık ve kapatma butonu
-                Container(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      builder: (context) => Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
+          color: AppColors.surface,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(20),
                       ),
-                    ],
                   ),
                   child: Column(
+          mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        width: 40,
-                        height: 4,
-                        margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.grey[300],
-                          borderRadius: BorderRadius.circular(2),
+                border: Border(
+                  bottom: BorderSide(
+                    color: AppColors.divider,
+                    width: 1,
+                  ),
                         ),
                       ),
-                      Row(
+              child: Row(
                         children: [
+                  Text(
+                    'Yeni Mesaj',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
                           IconButton(
-                            icon: const Icon(Icons.close),
+                    icon: Icon(
+                      Icons.close,
+                      color: AppColors.textSecondary,
+                    ),
                             onPressed: () => Navigator.pop(context),
                           ),
-                          const Expanded(
-                            child: Center(
-                              child: Text(
-                                'Yeni Mesaj',
+                ],
+              ),
+            ),
+            StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(_authService.currentUser?.uid)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(
+                    child: CircularProgressIndicator(),
+                  );
+                }
+
+                final userData = snapshot.data!.data() as Map<String, dynamic>;
+                final followingList = List<String>.from(userData['following'] ?? []);
+
+                if (followingList.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.people_outline,
+                          size: 48,
+                          color: AppColors.textSecondary,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Henüz kimseyi takip etmiyorsunuz',
                                 style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                            color: AppColors.textPrimary,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(width: 48),
-                        ],
+                        const SizedBox(height: 8),
+                        Text(
+                          'Yeni mesaj göndermek için önce kullanıcıları takip etmelisiniz',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 14,
+                          ),
+                          textAlign: TextAlign.center,
                       ),
                     ],
                   ),
-                ),
-                // Arama çubuğu
-                Container(
-                  margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  );
+                }
+
+                return StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('users')
+                      .where(FieldPath.documentId, whereIn: followingList)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const Center(
+                        child: CircularProgressIndicator(),
+                      );
+                    }
+
+                    final users = snapshot.data!.docs.map((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      return {
+                        'id': doc.id,
+                        'name': data['username'] ?? data['name'] ?? 'İsimsiz Kullanıcı',
+                        'profileImage': data['profileImage'] ?? data['profileImageUrl'],
+                        'isOnline': data['isOnline'] ?? false,
+                      };
+                    }).toList();
+
+                    return Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: users.length,
+                        itemBuilder: (context, index) {
+                          final user = users[index];
+                          return ListTile(
+                            leading: Stack(
+                              children: [
+                                CircleAvatar(
+                                  radius: 24,
+                                  backgroundColor: AppColors.surface,
+                                  child: user['profileImage'] != null && 
+                                         user['profileImage'].toString().isNotEmpty
+                                      ? ClipOval(
+                                          child: CachedNetworkImage(
+                                            imageUrl: user['profileImage'].toString(),
+                                            width: 48,
+                                            height: 48,
+                                            fit: BoxFit.cover,
+                                            placeholder: (context, url) => const CircularProgressIndicator(),
+                                            errorWidget: (context, url, error) => const Icon(
+                                              Icons.person,
+                                              size: 24,
+                                              color: AppColors.textSecondary,
+                                            ),
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.person,
+                                          size: 24,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                ),
+                                Positioned(
+                                  right: 0,
+                                  bottom: 0,
+                                  child: Container(
+                                    width: 12,
+                                    height: 12,
                   decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(15),
+                                      color: user['isOnline'] ? AppColors.success : AppColors.error,
+                                      shape: BoxShape.circle,
                     border: Border.all(
-                      color: Colors.grey[200]!,
-                      width: 1,
+                                        color: AppColors.surface,
+                                        width: 2,
                     ),
                   ),
-                  child: TextField(
-                    controller: _newMessageSearchController,
-                    autofocus: true,
-                    style: const TextStyle(fontSize: 16),
-                    decoration: InputDecoration(
-                      hintText: 'Kullanıcı ara...',
-                      hintStyle: TextStyle(color: Colors.grey[500]),
-                      prefixIcon: Icon(Icons.search, color: Colors.grey[500]),
-                      suffixIcon: _newMessageSearchQuery.isNotEmpty
-                          ? IconButton(
-                              icon: Icon(Icons.clear, color: Colors.grey[500]),
-                              onPressed: () {
-                                _newMessageSearchController.clear();
-                                setModalState(() {
-                                  _newMessageSearchQuery = '';
-                                });
-                              },
-                            )
-                          : null,
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    ),
-                    onChanged: (value) {
-                      setModalState(() {
-                        _newMessageSearchQuery = value;
-                      });
-                    },
-                  ),
-                ),
-                // Kullanıcı listesi
-                Expanded(
-                  child: _filteredFollowedUsers.isEmpty
-                      ? Center(
+                                  ),
+                                ),
+                              ],
+                            ),
+                            title: Text(
+                              user['name'] ?? 'İsimsiz Kullanıcı',
+                              style: TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: Text(
+                              user['isOnline'] ? 'Çevrimiçi' : 'Çevrimdışı',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 14,
+                              ),
+                            ),
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ChatScreen(
+                                    isGroup: false,
+                                    chatId: user['id'],
+                                    chatName: user['name'] ?? 'İsimsiz Kullanıcı',
+                                    chatImage: user['profileImage']?.toString() ?? '',
+                                    participants: [user['id']],
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}d';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}s';
+    } else {
+      return '${difference.inDays}g';
+    }
+  }
+
+  bool _filterChat(Map<String, dynamic> data) {
+    final isArchived = data['isArchived'] ?? false;
+    final unreadCount = data['unreadCount'] ?? 0;
+    final isGroup = data['isGroup'] ?? false;
+    final lastSenderId = data['lastSenderId'];
+    final currentUserId = _authService.currentUser?.uid;
+    
+    final bool isUnread = unreadCount > 0 && lastSenderId != null && lastSenderId != currentUserId;
+    
+    switch (_selectedCategory) {
+      case MessageCategory.all:
+        return !isArchived;
+      case MessageCategory.unread:
+        return !isArchived && isUnread;
+      case MessageCategory.group:
+        return !isArchived && isGroup;
+      case MessageCategory.archived:
+        return isArchived;
+      default:
+        return !isArchived;
+    }
+  }
+
+  Widget _buildEmptyState() {
+    String title;
+    String description;
+
+    switch (_selectedCategory) {
+      case MessageCategory.unread:
+        title = 'Okunmamış mesaj yok';
+        description = 'Tüm mesajlarınızı okumuşsunuz';
+        break;
+      case MessageCategory.group:
+        title = 'Grup mesajı yok';
+        description = 'Henüz bir grup sohbetiniz bulunmuyor';
+        break;
+      case MessageCategory.archived:
+        title = 'Arşivlenmiş mesaj yok';
+        description = 'Arşivlenmiş sohbetiniz bulunmuyor';
+        break;
+      default:
+        if (_searchQuery.isNotEmpty) {
+          title = 'Sonuç bulunamadı';
+          description = 'Farklı bir arama terimi deneyin';
+        } else {
+          title = 'Mesaj yok';
+          description = 'Henüz bir sohbetiniz bulunmuyor';
+        }
+    }
+
+    return Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: Colors.grey[50],
+              gradient: LinearGradient(
+                colors: [AppColors.primary, AppColors.primaryLight],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
                                   shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withOpacity(0.3),
+                  spreadRadius: 1,
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
                                 ),
                                 child: Icon(
-                                  Icons.search_off,
+              _selectedCategory == MessageCategory.unread ? Icons.mark_email_read :
+              _selectedCategory == MessageCategory.group ? Icons.group :
+              _selectedCategory == MessageCategory.archived ? Icons.archive :
+              _searchQuery.isNotEmpty ? Icons.search_off : Icons.chat_bubble_outline,
                                   size: 48,
-                                  color: Colors.grey[400],
+              color: AppColors.surface,
                                 ),
                               ),
                               const SizedBox(height: 16),
                               Text(
-                                'Kullanıcı bulunamadı',
+            title,
                                 style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
+              color: AppColors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
                                 ),
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Farklı bir arama terimi deneyin',
+            description,
                                 style: TextStyle(
-                                  color: Colors.grey[500],
-                                  fontSize: 14,
+              color: AppColors.textSecondary,
+              fontSize: 13,
                                 ),
+            textAlign: TextAlign.center,
                               ),
                             ],
                           ),
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: _filteredFollowedUsers.length,
+    );
+  }
+
+  Widget _buildChatList(List<QueryDocumentSnapshot> chats) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      itemCount: chats.length,
                           itemBuilder: (context, index) {
-                            final user = _filteredFollowedUsers[index];
-                            return Container(
+        final chatDoc = chats[index];
+        final chatData = chatDoc.data() as Map<String, dynamic>;
+        final participants = List<String>.from(chatData['participants'] ?? []);
+        
+        final otherParticipantId = participants.firstWhere(
+          (id) => id != _authService.currentUser?.uid,
+          orElse: () => participants.first,
+        );
+
+        return StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('users')
+              .doc(otherParticipantId)
+              .snapshots(),
+          builder: (context, userSnapshot) {
+            if (!userSnapshot.hasData) return const SizedBox();
+
+            final userData = userSnapshot.data!.data() as Map<String, dynamic>;
+            return _buildMessageItem(context, chatDoc, chatData, userData);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildMessageItem(
+    BuildContext context,
+    QueryDocumentSnapshot chatDoc,
+    Map<String, dynamic> chatData,
+    Map<String, dynamic> userData,
+  ) {
+    final userName = userData['username'] ?? userData['name'] ?? 'İsimsiz Kullanıcı';
+    final userImage = userData['profileImage'] ?? userData['profileImageUrl'];
+    final isOnline = userData['isOnline'] ?? false;
+    final participants = List<String>.from(chatData['participants'] ?? []);
+    
+    // Check if message is unread
+    final unreadCount = chatData['unreadCount'] ?? 0;
+    final lastSenderId = chatData['lastSenderId'];
+    final currentUserId = _authService.currentUser?.uid;
+    final bool isUnread = unreadCount > 0 && lastSenderId != null && lastSenderId != currentUserId;
+
+    // Function to mark message as read
+    void markAsRead() {
+      if (isUnread) {
+        FirebaseFirestore.instance
+            .collection('chats')
+            .doc(chatDoc.id)
+            .update({
+              'unreadCount': 0,
+              'readBy': FieldValue.arrayUnion([currentUserId]),
+              'lastReadAt': FieldValue.serverTimestamp(),
+            });
+      }
+    }
+
+    return Dismissible(
+      key: Key(chatDoc.id),
+      background: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [AppColors.error, AppColors.error.withOpacity(0.8)],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: Icon(Icons.delete, color: AppColors.surface, size: 24),
+      ),
+      direction: DismissDirection.endToStart,
+      onDismissed: (direction) {
+        FirebaseFirestore.instance
+            .collection('chats')
+            .doc(chatDoc.id)
+            .delete();
+      },
+      child: Container(
                               margin: const EdgeInsets.only(bottom: 8),
                               decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(15),
-                                border: Border.all(
-                                  color: Colors.grey[200]!,
-                                  width: 1,
+          color: isUnread ? AppColors.surface : AppColors.surface.withOpacity(0.8),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.shadow.withOpacity(isUnread ? 0.1 : 0.05),
+              spreadRadius: isUnread ? 1 : 0,
+              blurRadius: isUnread ? 5 : 3,
+              offset: const Offset(0, 2),
                                 ),
+          ],
                               ),
                               child: Material(
                                 color: Colors.transparent,
                                 child: InkWell(
                                   onTap: () {
-                                    Navigator.pop(context);
+              // Mark as read before navigating
+              markAsRead();
+              
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
                                         builder: (context) => ChatScreen(
-                                          isGroup: false,
-                                          chatId: user['id'],
-                                          chatName: user['name'],
-                                          chatImage: user['image'],
-                                          participants: [],
+                    isGroup: chatData['isGroup'] ?? false,
+                    chatId: chatDoc.id,
+                    chatName: userName,
+                    chatImage: userImage ?? '',
+                    participants: participants,
                                         ),
                                       ),
                                     );
                                   },
-                                  borderRadius: BorderRadius.circular(15),
+            borderRadius: BorderRadius.circular(12),
                                   child: Padding(
                                     padding: const EdgeInsets.all(12),
                                     child: Row(
                                       children: [
-                                        Stack(
+                  _buildAvatar(userImage, isOnline),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildHeader(userName, isUnread, chatData),
+                        const SizedBox(height: 2),
+                        _buildLastMessage(chatData, isUnread),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatar(String? userImage, bool isOnline) {
+    return Stack(
                                           children: [
                                             CircleAvatar(
-                                              radius: 28,
-                                              backgroundImage: CachedNetworkImageProvider(user['image']),
-                                            ),
-                                            if (user['isOnline'])
+          radius: 24,
+          backgroundColor: AppColors.surface,
+          child: userImage != null && userImage.isNotEmpty
+              ? ClipOval(
+                  child: CachedNetworkImage(
+                    imageUrl: userImage,
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => const CircularProgressIndicator(),
+                    errorWidget: (context, url, error) => const Icon(
+                      Icons.person,
+                      size: 24,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                )
+              : const Icon(
+                  Icons.person,
+                  size: 24,
+                  color: AppColors.textSecondary,
+                ),
+        ),
+        if (isOnline)
                                               Positioned(
                                                 right: 0,
                                                 bottom: 0,
                                                 child: Container(
-                                                  width: 14,
-                                                  height: 14,
+              width: 12,
+              height: 12,
                                                   decoration: BoxDecoration(
-                                                    color: Colors.green,
+                color: AppColors.success,
                                                     shape: BoxShape.circle,
                                                     border: Border.all(
-                                                      color: Colors.white,
+                  color: AppColors.surface,
                                                       width: 2,
                                                     ),
                                                   ),
                                                 ),
                                               ),
                                           ],
-                                        ),
-                                        const SizedBox(width: 16),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+    );
+  }
+
+  Widget _buildHeader(String userName, bool isUnread, Map<String, dynamic> chatData) {
+    return Row(
                                             children: [
-                                              Text(
-                                                user['name'],
-                                                style: const TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                user['username'],
+        Expanded(
+          child: Text(
+            userName,
                                                 style: TextStyle(
-                                                  color: Colors.grey[600],
+              color: isUnread ? AppColors.textPrimary : AppColors.textPrimary.withOpacity(0.8),
+              fontWeight: isUnread ? FontWeight.bold : FontWeight.w500,
                                                   fontSize: 14,
                                                 ),
                                               ),
-                                              const SizedBox(height: 4),
-                                              Row(
-                                                children: [
-                                                  Icon(
-                                                    Icons.circle,
-                                                    size: 8,
-                                                    color: user['isOnline'] ? Colors.green : Colors.grey[400],
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    user['isOnline'] ? 'Çevrimiçi' : 'Çevrimdışı',
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: isUnread 
+                ? AppColors.primary.withOpacity(0.15)
+                : AppColors.primary.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            _getTimeAgo((chatData['lastMessageTime'] as Timestamp).toDate()),
                                                     style: TextStyle(
-                                                      color: user['isOnline'] ? Colors.green : Colors.grey[500],
-                                                      fontSize: 12,
+              fontSize: 11,
+              color: isUnread 
+                  ? AppColors.primary
+                  : AppColors.primary.withOpacity(0.7),
+              fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
                                                     ),
                                                   ),
-                                                ],
                                               ),
                                             ],
-                                          ),
+    );
+  }
+
+  Widget _buildLastMessage(Map<String, dynamic> chatData, bool isUnread) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            chatData['lastMessage'] ?? '',
+            style: TextStyle(
+              color: isUnread
+                  ? AppColors.textPrimary
+                  : AppColors.textSecondary.withOpacity(0.8),
+              fontWeight: isUnread ? FontWeight.w500 : FontWeight.normal,
+              fontSize: 13,
                                         ),
-                                        Icon(
-                                          Icons.arrow_forward_ios,
-                                          size: 16,
-                                          color: Colors.grey[400],
-                                        ),
-                                      ],
-                                    ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                              ),
-                            );
-                          },
+        if (isUnread)
+          Container(
+            margin: const EdgeInsets.only(left: 8),
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              shape: BoxShape.circle,
                         ),
                 ),
               ],
-            ),
-          );
-        },
-      ),
     );
   }
 } 

@@ -372,4 +372,49 @@ class AuthService {
     final List<dynamic> following = currentUserDoc.data()?['following'] ?? [];
     return following.contains(targetUserId);
   }
+
+  Future<void> changeEmail({
+    required String currentEmail,
+    required String newEmail,
+    required String password,
+  }) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw Exception('Kullanıcı oturumu bulunamadı');
+      }
+
+      // Önce mevcut e-posta ve şifre ile yeniden doğrulama yap
+      final credential = EmailAuthProvider.credential(
+        email: currentEmail,
+        password: password,
+      );
+
+      await user.reauthenticateWithCredential(credential);
+
+      // E-posta adresini güncelle
+      await user.verifyBeforeUpdateEmail(newEmail);
+
+      // Firestore'da e-posta güncelleme zamanını kaydet
+      await _firestore.collection('users').doc(user.uid).update({
+        'email': newEmail,
+        'emailUpdatedAt': FieldValue.serverTimestamp(),
+      });
+
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'wrong-password') {
+        throw Exception('Şifre yanlış');
+      } else if (e.code == 'invalid-email') {
+        throw Exception('Geçersiz e-posta adresi');
+      } else if (e.code == 'email-already-in-use') {
+        throw Exception('Bu e-posta adresi zaten kullanımda');
+      } else if (e.code == 'requires-recent-login') {
+        throw Exception('E-posta değiştirmek için son zamanlarda giriş yapmanız gerekiyor');
+      } else {
+        throw Exception('E-posta değiştirilirken bir hata oluştu: ${e.message}');
+      }
+    } catch (e) {
+      throw Exception('Beklenmeyen bir hata oluştu: $e');
+    }
+  }
 } 

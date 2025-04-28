@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../theme/colors.dart';
-import '../../services/auth_service.dart';
+import 'package:etki_social_app/constants/app_colors.dart';
+import 'package:etki_social_app/services/auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class ChangeEmailScreen extends StatefulWidget {
@@ -12,18 +12,18 @@ class ChangeEmailScreen extends StatefulWidget {
 
 class _ChangeEmailScreenState extends State<ChangeEmailScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _currentPasswordController = TextEditingController();
+  final _currentEmailController = TextEditingController();
   final _newEmailController = TextEditingController();
-  final _confirmEmailController = TextEditingController();
+  final _passwordController = TextEditingController();
   final _authService = AuthService();
   bool _isLoading = false;
   bool _obscurePassword = true;
 
   @override
   void dispose() {
-    _currentPasswordController.dispose();
+    _currentEmailController.dispose();
     _newEmailController.dispose();
-    _confirmEmailController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -33,29 +33,17 @@ class _ChangeEmailScreenState extends State<ChangeEmailScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final user = _authService.currentUser;
-      if (user == null) {
-        throw Exception('Kullanıcı oturumu bulunamadı');
-      }
-
-      // Önce kullanıcının kimliğini doğrula
-      final AuthCredential credential = EmailAuthProvider.credential(
-        email: user.email!,
-        password: _currentPasswordController.text,
+      await _authService.changeEmail(
+        currentEmail: _currentEmailController.text,
+        newEmail: _newEmailController.text,
+        password: _passwordController.text,
       );
-
-      // Yeniden kimlik doğrulama
-      await user.reauthenticateWithCredential(credential);
-
-      // Firebase Auth'da e-posta güncelleme
-      await FirebaseAuth.instance.currentUser!.verifyBeforeUpdateEmail(_newEmailController.text);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('E-posta adresiniz başarıyla güncellendi. Lütfen yeni e-posta adresinizi doğrulayın.'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 5),
+          SnackBar(
+            content: const Text('E-posta adresiniz başarıyla değiştirildi'),
+            backgroundColor: AppColors.success,
           ),
         );
         Navigator.pop(context);
@@ -64,27 +52,26 @@ class _ChangeEmailScreenState extends State<ChangeEmailScreen> {
       String errorMessage;
       switch (e.code) {
         case 'wrong-password':
-          errorMessage = 'Mevcut şifreniz yanlış. Lütfen tekrar deneyin.';
-          break;
-        case 'requires-recent-login':
-          errorMessage = 'Güvenlik nedeniyle tekrar giriş yapmanız gerekiyor. Lütfen çıkış yapıp tekrar giriş yapın.';
-          break;
-        case 'email-already-in-use':
-          errorMessage = 'Bu e-posta adresi başka bir hesap tarafından kullanılıyor.';
+          errorMessage = 'Şifreniz yanlış. Lütfen tekrar deneyin.';
           break;
         case 'invalid-email':
           errorMessage = 'Geçersiz e-posta adresi formatı.';
           break;
+        case 'email-already-in-use':
+          errorMessage = 'Bu e-posta adresi zaten kullanımda.';
+          break;
+        case 'requires-recent-login':
+          errorMessage = 'E-posta değiştirmek için son zamanlarda giriş yapmanız gerekiyor. Lütfen çıkış yapıp tekrar giriş yapın.';
+          break;
         default:
-          errorMessage = 'Bir hata oluştu: ${e.message}';
+          errorMessage = 'E-posta değiştirilirken bir hata oluştu: ${e.message}';
       }
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errorMessage),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -93,8 +80,7 @@ class _ChangeEmailScreenState extends State<ChangeEmailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Beklenmeyen bir hata oluştu: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -108,13 +94,19 @@ class _ChangeEmailScreenState extends State<ChangeEmailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.primaryBackground,
       appBar: AppBar(
-        title: const Text('E-posta Değiştir'),
-        backgroundColor: Colors.white,
+        title: Text(
+          'E-posta Değiştir',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: AppColors.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -142,9 +134,9 @@ class _ChangeEmailScreenState extends State<ChangeEmailScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Güvenliğiniz için e-posta değişikliği yapmadan önce şifrenizi doğrulamamız gerekiyor.',
+                        'E-posta adresinizi değiştirmek için mevcut e-posta adresinizi ve şifrenizi girmeniz gerekmektedir.',
                         style: TextStyle(
-                          color: Colors.grey[800],
+                          color: AppColors.textPrimary,
                           fontSize: 14,
                         ),
                       ),
@@ -154,30 +146,35 @@ class _ChangeEmailScreenState extends State<ChangeEmailScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Mevcut Şifre
+              // Mevcut E-posta
               TextFormField(
-                controller: _currentPasswordController,
-                obscureText: _obscurePassword,
+                controller: _currentEmailController,
+                keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
-                  labelText: 'Mevcut Şifre',
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
-                  ),
+                  labelText: 'Mevcut E-posta',
+                  prefixIcon: Icon(Icons.email_outlined, color: AppColors.primary),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppColors.divider),
                   ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppColors.divider),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppColors.primary),
+                  ),
+                  labelStyle: TextStyle(color: AppColors.textSecondary),
+                  filled: true,
+                  fillColor: AppColors.surface,
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Lütfen mevcut şifrenizi girin';
+                    return 'Lütfen mevcut e-posta adresinizi girin';
+                  }
+                  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                    return 'Geçerli bir e-posta adresi girin';
                   }
                   return null;
                 },
@@ -190,10 +187,22 @@ class _ChangeEmailScreenState extends State<ChangeEmailScreen> {
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
                   labelText: 'Yeni E-posta',
-                  prefixIcon: const Icon(Icons.email_outlined),
+                  prefixIcon: Icon(Icons.email_outlined, color: AppColors.primary),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppColors.divider),
                   ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppColors.divider),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppColors.primary),
+                  ),
+                  labelStyle: TextStyle(color: AppColors.textSecondary),
+                  filled: true,
+                  fillColor: AppColors.surface,
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -207,23 +216,43 @@ class _ChangeEmailScreenState extends State<ChangeEmailScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Yeni E-posta Tekrar
+              // Şifre
               TextFormField(
-                controller: _confirmEmailController,
-                keyboardType: TextInputType.emailAddress,
+                controller: _passwordController,
+                obscureText: _obscurePassword,
                 decoration: InputDecoration(
-                  labelText: 'Yeni E-posta Tekrar',
-                  prefixIcon: const Icon(Icons.email_outlined),
+                  labelText: 'Şifre',
+                  prefixIcon: Icon(Icons.lock_outline, color: AppColors.primary),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      color: AppColors.textSecondary,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppColors.divider),
                   ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppColors.divider),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppColors.primary),
+                  ),
+                  labelStyle: TextStyle(color: AppColors.textSecondary),
+                  filled: true,
+                  fillColor: AppColors.surface,
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Lütfen yeni e-posta adresinizi tekrar girin';
-                  }
-                  if (value != _newEmailController.text) {
-                    return 'E-posta adresleri eşleşmiyor';
+                    return 'Lütfen şifrenizi girin';
                   }
                   return null;
                 },
@@ -243,13 +272,13 @@ class _ChangeEmailScreenState extends State<ChangeEmailScreen> {
                     ),
                   ),
                   child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text(
-                          'E-posta Adresini Değiştir',
+                      ? CircularProgressIndicator(color: AppColors.surface)
+                      : Text(
+                          'E-posta Değiştir',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                            color: AppColors.surface,
                           ),
                         ),
                 ),

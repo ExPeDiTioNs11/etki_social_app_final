@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../theme/colors.dart';
-import '../../services/auth_service.dart';
+import 'package:etki_social_app/constants/app_colors.dart';
+import 'package:etki_social_app/services/auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
@@ -78,9 +78,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Şifreniz başarıyla değiştirildi'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: const Text('Şifreniz başarıyla değiştirildi'),
+            backgroundColor: AppColors.success,
           ),
         );
         Navigator.pop(context);
@@ -105,7 +105,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errorMessage),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -114,7 +114,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Beklenmeyen bir hata oluştu: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -128,13 +128,19 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.primaryBackground,
       appBar: AppBar(
-        title: const Text('Şifre Değiştir'),
-        backgroundColor: Colors.white,
+        title: Text(
+          'Şifre Değiştir',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: AppColors.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -163,11 +169,12 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                           size: 24,
                         ),
                         const SizedBox(width: 12),
-                        const Text(
+                        Text(
                           'Güvenli Şifre Kuralları',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
                           ),
                         ),
                       ],
@@ -204,12 +211,13 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 obscureText: _obscureCurrentPassword,
                 decoration: InputDecoration(
                   labelText: 'Mevcut Şifre',
-                  prefixIcon: const Icon(Icons.lock_outline),
+                  prefixIcon: Icon(Icons.lock_outline, color: AppColors.primary),
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscureCurrentPassword
                           ? Icons.visibility_off
                           : Icons.visibility,
+                      color: AppColors.textSecondary,
                     ),
                     onPressed: () {
                       setState(() {
@@ -219,7 +227,19 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppColors.divider),
                   ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppColors.divider),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppColors.primary),
+                  ),
+                  labelStyle: TextStyle(color: AppColors.textSecondary),
+                  filled: true,
+                  fillColor: AppColors.surface,
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -236,12 +256,13 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 obscureText: _obscureNewPassword,
                 decoration: InputDecoration(
                   labelText: 'Yeni Şifre',
-                  prefixIcon: const Icon(Icons.lock_outline),
+                  prefixIcon: Icon(Icons.lock_outline, color: AppColors.primary),
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscureNewPassword
                           ? Icons.visibility_off
                           : Icons.visibility,
+                      color: AppColors.textSecondary,
                     ),
                     onPressed: () {
                       setState(() {
@@ -251,7 +272,19 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppColors.divider),
                   ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppColors.divider),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppColors.primary),
+                  ),
+                  labelStyle: TextStyle(color: AppColors.textSecondary),
+                  filled: true,
+                  fillColor: AppColors.surface,
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -280,12 +313,13 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 obscureText: _obscureConfirmPassword,
                 decoration: InputDecoration(
                   labelText: 'Yeni Şifre Tekrar',
-                  prefixIcon: const Icon(Icons.lock_outline),
+                  prefixIcon: Icon(Icons.lock_outline, color: AppColors.primary),
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscureConfirmPassword
                           ? Icons.visibility_off
                           : Icons.visibility,
+                      color: AppColors.textSecondary,
                     ),
                     onPressed: () {
                       setState(() {
@@ -295,7 +329,19 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppColors.divider),
                   ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppColors.divider),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppColors.primary),
+                  ),
+                  labelStyle: TextStyle(color: AppColors.textSecondary),
+                  filled: true,
+                  fillColor: AppColors.surface,
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -316,19 +362,19 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 child: ElevatedButton(
                   onPressed: _isPasswordValid && !_isLoading ? _changePassword : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _isPasswordValid ? AppColors.primary : Colors.grey[300],
+                    backgroundColor: _isPasswordValid ? AppColors.primary : AppColors.divider,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
+                      ? CircularProgressIndicator(color: AppColors.surface)
                       : Text(
                           'Şifreyi Değiştir',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: _isPasswordValid ? Colors.white : Colors.grey[600],
+                            color: _isPasswordValid ? AppColors.surface : AppColors.textSecondary,
                           ),
                         ),
                 ),
@@ -347,14 +393,14 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         children: [
           Icon(
             isValid ? Icons.check_circle : Icons.circle_outlined,
-            color: isValid ? Colors.green[600] : Colors.grey[400],
+            color: isValid ? AppColors.success : AppColors.textSecondary,
             size: 20,
           ),
           const SizedBox(width: 8),
           Text(
             text,
             style: TextStyle(
-              color: isValid ? Colors.grey[800] : Colors.grey[500],
+              color: isValid ? AppColors.textPrimary : AppColors.textSecondary,
               fontSize: 14,
             ),
           ),

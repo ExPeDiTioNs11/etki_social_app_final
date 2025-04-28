@@ -1,37 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../../theme/colors.dart';
-import 'dart:math';
-import 'dart:async';
-
-class ChatMessage {
-  final String id;
-  final String senderId;
-  final String senderName;
-  final String senderImage;
-  final String content;
-  final DateTime timestamp;
-  final bool isMe;
-  final MessageType type;
-
-  ChatMessage({
-    required this.id,
-    required this.senderId,
-    required this.senderName,
-    required this.senderImage,
-    required this.content,
-    required this.timestamp,
-    required this.isMe,
-    this.type = MessageType.text,
-  });
-}
-
-enum MessageType {
-  text,
-  image,
-  video,
-  file,
-}
+import '../../constants/app_colors.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../services/auth_service.dart';
 
 class ChatScreen extends StatefulWidget {
   final bool isGroup;
@@ -53,382 +24,200 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
+class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  bool _isTyping = false;
-  late final AnimationController _starController;
-  late final AnimationController _callController;
-  late final AnimationController _waveController;
-  late final AnimationController _timerController;
-  final _randomOffsets = List.generate(8, (_) => Random().nextDouble() * 2 * pi);
-  bool _isMuted = false;
-  bool _isSpeakerOn = false;
-  bool _isVideoOn = false;
-  bool _isCallActive = false;
-  Duration _callDuration = Duration.zero;
-  Timer? _callTimer;
-
-  // Örnek mesajlar
-  final List<ChatMessage> _messages = [
-    ChatMessage(
-      id: '1',
-      senderId: 'user1',
-      senderName: 'Ahmet Yılmaz',
-      senderImage: 'https://picsum.photos/200',
-      content: 'Merhaba, nasılsın?',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 30)),
-      isMe: false,
-    ),
-    ChatMessage(
-      id: '2',
-      senderId: 'me',
-      senderName: 'Ben',
-      senderImage: 'https://picsum.photos/201',
-      content: 'İyiyim, teşekkürler! Sen nasılsın?',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 25)),
-      isMe: true,
-    ),
-    ChatMessage(
-      id: '3',
-      senderId: 'user1',
-      senderName: 'Ahmet Yılmaz',
-      senderImage: 'https://picsum.photos/200',
-      content: 'Ben de iyiyim. Yeni projeyi duydun mu?',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 20)),
-      isMe: false,
-    ),
-  ];
+  final AuthService _authService = AuthService();
+  bool _isLoading = false;
+  bool _isLoadingMore = false;
+  DocumentSnapshot? _lastDocument;
+  final int _messagesPerPage = 20;
+  bool _hasMoreMessages = true;
+  Map<String, dynamic>? _chatUserData;
+  bool _isUserOnline = false;
 
   @override
   void initState() {
     super.initState();
-    _starController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat();
-
-    _callController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-
-    _waveController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    )..repeat();
-
-    _timerController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 1),
-    )..repeat();
+    _markMessagesAsRead();
+    _scrollController.addListener(_onScroll);
+    _loadChatUserData();
+    _listenToUserStatus();
   }
 
   @override
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
-    _starController.dispose();
-    _callController.dispose();
-    _waveController.dispose();
-    _timerController.dispose();
-    _callTimer?.cancel();
     super.dispose();
   }
 
-  void _startCallTimer() {
-    _callTimer?.cancel();
-    _callDuration = Duration.zero;
-    _callTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+  void _onScroll() {
+    if (_scrollController.position.pixels == _scrollController.position.minScrollExtent) {
+      if (!_isLoadingMore && _hasMoreMessages) {
+        _loadMoreMessages();
+      }
+    }
+  }
+
+  Future<void> _loadMoreMessages() async {
+    if (_isLoadingMore || !_hasMoreMessages) return;
+
       setState(() {
-        _callDuration += const Duration(seconds: 1);
+      _isLoadingMore = true;
       });
-    });
-  }
 
-  void _resetCallState() {
-    _callTimer?.cancel();
-    _callDuration = Duration.zero;
-    _isCallActive = false;
-    _isMuted = false;
-    _isSpeakerOn = false;
-    _isVideoOn = false;
-  }
+    try {
+      Query query = FirebaseFirestore.instance
+          .collection('chats')
+          .doc(widget.chatId)
+          .collection('messages')
+          .orderBy('timestamp', descending: false)
+          .limit(_messagesPerPage);
 
-  void _showCallScreen(BuildContext context) {
-    _isCallActive = true;
-    _startCallTimer();
-    
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      enableDrag: false,
-      isDismissible: false,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) {
-          return Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Column(
-              children: [
-                // Call Header
-                Container(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          const Spacer(),
-                          Text(
-                            'Görüşme',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const Spacer(),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      // Call Status
-                      Text(
-                        'Görüşme Devam Ediyor',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      // Call Duration
-                      AnimatedBuilder(
-                        animation: _timerController,
-                        builder: (context, child) {
-                          return Text(
-                            _formatDuration(_callDuration),
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                // Call Content
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // Profile Image with Wave Effect
-                        SizedBox(
-                          height: 300,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              AnimatedBuilder(
-                                animation: _waveController,
-                                builder: (context, child) {
-                                  return Positioned(
-                                    child: Container(
-                                      width: 200 + (_waveController.value * 40),
-                                      height: 200 + (_waveController.value * 40),
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: AppColors.primary.withOpacity(0.5 - (_waveController.value * 0.5)),
-                                          width: 2,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                              Container(
-                                width: 200,
-                                height: 200,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  image: DecorationImage(
-                                    image: CachedNetworkImageProvider(widget.chatImage),
-                                    fit: BoxFit.cover,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.1),
-                                      blurRadius: 20,
-                                      spreadRadius: 5,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-                        // Caller Name
-                        Text(
-                          widget.chatName,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        // Call Status
-                        Text(
-                          'Mobil',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 16,
-                          ),
-                        ),
-                        const Spacer(),
-                        // Call Controls
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _buildCallControl(
-                              icon: _isMuted ? Icons.mic_off : Icons.mic,
-                              label: 'Sessiz',
-                              color: _isMuted ? AppColors.primary : Colors.grey[600]!,
-                              onTap: () {
-                                setModalState(() {
-                                  _isMuted = !_isMuted;
-                                });
-                              },
-                            ),
-                            _buildCallControl(
-                              icon: _isSpeakerOn ? Icons.volume_up : Icons.volume_off,
-                              label: 'Hoparlör',
-                              color: _isSpeakerOn ? AppColors.primary : Colors.grey[600]!,
-                              onTap: () {
-                                setModalState(() {
-                                  _isSpeakerOn = !_isSpeakerOn;
-                                });
-                              },
-                            ),
-                            _buildCallControl(
-                              icon: _isVideoOn ? Icons.videocam : Icons.videocam_off,
-                              label: 'Video',
-                              color: _isVideoOn ? AppColors.primary : Colors.grey[600]!,
-                              onTap: () {
-                                setModalState(() {
-                                  _isVideoOn = !_isVideoOn;
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 32),
-                        // End Call Button
-                        ScaleTransition(
-                          scale: Tween<double>(begin: 1.0, end: 0.9).animate(
-                            CurvedAnimation(
-                              parent: _callController,
-                              curve: Curves.easeInOut,
-                            ),
-                          ),
-                          child: Container(
-                            width: 60,
-                            height: 60,
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.red.withOpacity(0.3),
-                                  blurRadius: 10,
-                                  spreadRadius: 2,
-                                ),
-                              ],
-                            ),
-                            child: IconButton(
-                              icon: const Icon(Icons.call_end, color: Colors.white),
-                              iconSize: 30,
-                              onPressed: () {
-                                _callController.forward().then((_) {
-                                  _callController.reverse();
-                                  _resetCallState();
-                                  Navigator.pop(context);
-                                });
-                              },
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
+      if (_lastDocument != null) {
+        query = query.startAfterDocument(_lastDocument!);
+      }
 
-  Widget _buildCallControl({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(30),
-        child: Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, color: color, size: 30),
+      final snapshot = await query.get();
+
+      if (snapshot.docs.isEmpty) {
+        setState(() {
+          _hasMoreMessages = false;
+        });
+        return;
+      }
+
+      _lastDocument = snapshot.docs.last;
+
+      // Mesajları mevcut listeye ekle
+      final newMessages = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return <String, dynamic>{
+          'id': doc.id,
+          'senderId': data['senderId'],
+          'receiverId': data['receiverId'],
+          'content': data['content'],
+          'timestamp': data['timestamp'],
+          'isRead': data['isRead'] ?? false,
+        };
+      }).toList();
+
+      setState(() {
+        _messages.addAll(newMessages);
+      });
+    } catch (e) {
+      print('Error loading more messages: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Mesajlar yüklenirken bir hata oluştu'),
+          duration: Duration(seconds: 2),
         ),
-      ),
-    );
+      );
+    } finally {
+      setState(() {
+        _isLoadingMore = false;
+                                });
+    }
   }
 
-  void _sendMessage() {
+  List<Map<String, dynamic>> _messages = [];
+
+  Future<void> _markMessagesAsRead() async {
+    final currentUser = _authService.currentUser;
+    if (currentUser == null) return;
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('chats')
+          .doc(widget.chatId)
+          .collection('messages')
+          .where('receiverId', isEqualTo: currentUser.uid)
+          .where('isRead', isEqualTo: false)
+          .get()
+          .then((snapshot) {
+        for (var doc in snapshot.docs) {
+          doc.reference.update({'isRead': true});
+        }
+      });
+    } catch (e) {
+      print('Error marking messages as read: $e');
+  }
+  }
+
+  Future<void> _sendMessage() async {
     if (_messageController.text.trim().isEmpty) return;
 
-    final newMessage = ChatMessage(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      senderId: 'me',
-      senderName: 'Ben',
-      senderImage: 'https://picsum.photos/201',
-      content: _messageController.text,
-      timestamp: DateTime.now(),
-      isMe: true,
-    );
+    final currentUser = _authService.currentUser;
+    if (currentUser == null) return;
 
     setState(() {
-      _messages.add(newMessage);
-      _messageController.clear();
+      _isLoading = true;
     });
 
+    try {
+      print('Sending message to chat: ${widget.chatId}'); // Debug log
+      print('Current user: ${currentUser.uid}'); // Debug log
+      print('Participants: ${widget.participants}'); // Debug log
+
+      // Eğer chat ID boşsa, yeni bir chat ID oluştur
+      String chatId = widget.chatId;
+      if (chatId.isEmpty) {
+        // Katılımcıları sırala ve birleştirerek benzersiz bir ID oluştur
+        final sortedParticipants = [currentUser.uid, ...widget.participants]..sort();
+        chatId = sortedParticipants.join('_');
+        print('Generated new chat ID: $chatId'); // Debug log
+      }
+
+      final chatRef = FirebaseFirestore.instance.collection('chats').doc(chatId);
+      final messageRef = chatRef.collection('messages');
+
+      // Yeni mesaj verisi
+      final message = {
+        'senderId': currentUser.uid,
+        'receiverId': widget.participants.first,
+        'content': _messageController.text.trim(),
+        'timestamp': FieldValue.serverTimestamp(),
+        'isRead': false,
+      };
+
+      print('Message data: $message'); // Debug log
+
+      // Önce chat belgesini oluştur/güncelle
+      final chatData = {
+        'participants': [currentUser.uid, ...widget.participants],
+        'lastMessage': message['content'],
+        'lastMessageTime': message['timestamp'],
+        'lastSenderId': currentUser.uid,
+        'isGroup': widget.isGroup,
+        'unreadCount': FieldValue.increment(1),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      print('Chat data to be saved: $chatData'); // Debug log
+
+      await chatRef.set(chatData, SetOptions(merge: true));
+      print('Chat document updated successfully'); // Debug log
+
+      // Sonra mesajı ekle
+      final newMessage = await messageRef.add(message);
+      print('Message added successfully with ID: ${newMessage.id}'); // Debug log
+
+      _messageController.clear();
     _scrollToBottom();
+    } catch (e) {
+      print('Error sending message: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Mesaj gönderilirken bir hata oluştu'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   void _scrollToBottom() {
@@ -441,590 +230,435 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
   }
 
-  String _getTimeAgo(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
+  Future<void> _loadChatUserData() async {
+    if (widget.participants.isEmpty) {
+      print('No participants found');
+      return;
+    }
 
-    if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}d';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours}s';
+    try {
+      final currentUser = _authService.currentUser;
+      if (currentUser == null) return;
+
+      // Find the other participant (not the current user)
+      final otherParticipant = widget.participants.firstWhere(
+        (id) => id != currentUser.uid,
+        orElse: () => widget.participants.first,
+      );
+
+      print('Loading user data for: $otherParticipant');
+
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(otherParticipant)
+          .get();
+
+      if (userDoc.exists) {
+        final userData = userDoc.data() as Map<String, dynamic>;
+        print('User data loaded: ${userData['name']}');
+        print('Profile image URL: ${userData['profileImage']}');
+
+        setState(() {
+          _chatUserData = userData;
+        });
     } else {
-      return '${difference.inDays}g';
+        print('User document not found');
+    }
+    } catch (e) {
+      print('Error loading user data: $e');
     }
   }
 
-  String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final hours = twoDigits(duration.inHours);
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
-    final seconds = twoDigits(duration.inSeconds.remainder(60));
-    return duration.inHours > 0 ? '$hours:$minutes:$seconds' : '$minutes:$seconds';
+  void _listenToUserStatus() {
+    if (widget.participants.isEmpty) {
+      print('No participants found');
+      return;
+    }
+
+    final currentUser = _authService.currentUser;
+    if (currentUser == null) return;
+
+    // Find the other participant (not the current user)
+    final otherParticipant = widget.participants.firstWhere(
+      (id) => id != currentUser.uid,
+      orElse: () => widget.participants.first,
+    );
+
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(otherParticipant)
+        .snapshots()
+        .listen((snapshot) {
+      if (snapshot.exists) {
+        final data = snapshot.data() as Map<String, dynamic>;
+        setState(() {
+          _isUserOnline = data['isOnline'] ?? false;
+        });
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.primaryBackground,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: GestureDetector(
-          onTap: () {
-            _showUserProfileModal(context, ChatMessage(
-              id: 'profile',
-              senderId: widget.chatId,
-              senderName: widget.chatName,
-              senderImage: widget.chatImage,
-              content: '',
-              timestamp: DateTime.now(),
-              isMe: false,
-            ));
-          },
-          child: Row(
+        title: Row(
             children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundImage: CachedNetworkImageProvider(widget.chatImage),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            Stack(
                 children: [
-                  Text(
-                    widget.chatName,
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontWeight: FontWeight.bold,
+                Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [AppColors.primary, AppColors.primaryLight],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
+                    shape: BoxShape.circle,
                   ),
-                  if (widget.isGroup)
-                    Text(
-                      '${widget.participants.length} üye',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
+                  child: CircleAvatar(
+                radius: 20,
+                    backgroundColor: AppColors.surface,
+                    child: CircleAvatar(
+                      radius: 18,
+                      backgroundImage: _chatUserData?['profileImage'] != null && 
+                                     _chatUserData!['profileImage'].toString().isNotEmpty
+                          ? CachedNetworkImageProvider(_chatUserData!['profileImage'])
+                          : widget.chatImage.isNotEmpty
+                              ? CachedNetworkImageProvider(widget.chatImage)
+                              : null,
+                      child: _chatUserData?['profileImage'] == null || 
+                             _chatUserData!['profileImage'].toString().isEmpty
+                          ? const Icon(Icons.person, color: AppColors.textSecondary)
+                          : null,
+                    ),
+            ),
+                ),
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: _isUserOnline ? AppColors.success : AppColors.error,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.surface,
+                        width: 2,
                       ),
                     ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          if (!widget.isGroup)
-            IconButton(
-              icon: Icon(Icons.video_call, color: Colors.grey[800]),
-              onPressed: () {
-                // TODO: Start video call
-              },
-            ),
-          if (!widget.isGroup)
-            IconButton(
-              icon: Icon(Icons.call, color: Colors.grey[800]),
-              onPressed: () => _showCallScreen(context),
+                  ),
             ),
         ],
       ),
-      body: Stack(
-        children: [
+              const SizedBox(width: 12),
           Column(
-            children: [
-              Expanded(
-                child: ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _messages.length,
-                  itemBuilder: (context, index) {
-                    final message = _messages[index];
-                    return Align(
-                      alignment: message.isMe ? Alignment.centerRight : Alignment.centerLeft,
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: message.isMe ? AppColors.primary : Colors.grey[200],
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              message.content,
-                              style: TextStyle(
-                                color: message.isMe ? Colors.white : Colors.black87,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
+                  _chatUserData?['name'] ?? widget.chatName,
+                    style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                             Text(
-                              _getTimeAgo(message.timestamp),
+                  _isUserOnline ? 'Çevrimiçi' : 'Çevrimdışı',
                               style: TextStyle(
-                                color: message.isMe ? Colors.white70 : Colors.black54,
-                                fontSize: 10,
+                    color: AppColors.textSecondary,
+                        fontSize: 12,
                               ),
                             ),
                           ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      spreadRadius: 1,
-                      blurRadius: 5,
-                      offset: const Offset(0, -2),
                     ),
                   ],
                 ),
-                child: SafeArea(
-                  child: Row(
-                    children: [
+        backgroundColor: AppColors.surface,
+        elevation: 0,
+        actions: [
                       IconButton(
-                        icon: Icon(Icons.attach_file, color: Colors.grey[600]),
-                        onPressed: () {
-                          // TODO: Show attachment options
-                        },
-                      ),
-                      Expanded(
-                        child: Container(
+            icon: Container(
+              padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            color: Colors.grey[100],
-                            borderRadius: BorderRadius.circular(25),
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
                           ),
-                          child: TextField(
-                            controller: _messageController,
-                            decoration: InputDecoration(
-                              hintText: 'Mesajınızı yazın...',
-                              hintStyle: TextStyle(color: Colors.grey[500]),
-                              border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: const Icon(
+                Icons.more_vert,
+                color: AppColors.primary,
+                size: 20,
                             ),
-                            maxLines: null,
-                            onChanged: (value) {
-                              setState(() {
-                                _isTyping = value.isNotEmpty;
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          _isTyping ? Icons.send : Icons.mic,
-                          color: _isTyping ? AppColors.primary : Colors.grey[600],
-                        ),
-                        onPressed: _isTyping ? _sendMessage : null,
+            ),
+            onPressed: () {
+              // TODO: Implement chat options
+            },
                       ),
                     ],
                   ),
-                ),
-              ),
-            ],
-          ),
-        ],
+      body: Column(
+        children: [
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('chats')
+                  .doc(widget.chatId)
+                  .collection('messages')
+                  .orderBy('timestamp', descending: false)
+                  .limit(_messagesPerPage)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
       ),
     );
   }
 
-  void _showUserProfileModal(BuildContext context, ChatMessage message) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        minChildSize: 0.3,
-        maxChildSize: 0.9,
-        builder: (context, scrollController) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: CustomScrollView(
-            controller: scrollController,
-            slivers: [
-              SliverToBoxAdapter(
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return Center(
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Container(
-                      width: 40,
-                      height: 4,
-                      margin: const EdgeInsets.only(top: 8, bottom: 16),
+                          padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundImage: CachedNetworkImageProvider(message.senderImage),
+                            gradient: LinearGradient(
+                              colors: [AppColors.primary, AppColors.primaryLight],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withOpacity(0.3),
+                                spreadRadius: 1,
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.chat_bubble_outline,
+                            size: 48,
+                            color: AppColors.surface,
+                          ),
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      message.senderName,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                          'Henüz mesaj yok',
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Son görülme: ${_getTimeAgo(message.timestamp)}',
+                          'İlk mesajı siz gönderin',
                       style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildActionButton(
-                          icon: Icons.block,
-                          label: 'Engelle',
-                          color: Colors.red,
-                          onTap: () {
-                            Navigator.pop(context);
-                          },
-                        ),
-                        _buildActionButton(
-                          icon: Icons.delete,
-                          label: 'Mesajları Sil',
-                          color: Colors.orange,
-                          onTap: () {
-                            Navigator.pop(context);
-                          },
-                        ),
-                        _buildActionButton(
-                          icon: Icons.report,
-                          label: 'Şikayet Et',
-                          color: Colors.blue,
-                          onTap: () {
-                            Navigator.pop(context);
-                          },
-                        ),
-                        _buildActionButton(
-                          icon: Icons.person,
-                          label: 'Profili Gör',
-                          color: Colors.green,
-                          onTap: () {
-                            Navigator.pop(context);
-                          },
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 1.0, end: 1.1),
-                      duration: const Duration(milliseconds: 1500),
-                      curve: Curves.easeInOut,
-                      builder: (context, value, child) {
-                        return Transform.scale(
-                          scale: value,
-                          child: Container(
-                            width: double.infinity,
-                            margin: const EdgeInsets.symmetric(horizontal: 24),
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                Navigator.pop(context);
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                padding: const EdgeInsets.symmetric(vertical: 6),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                elevation: 8,
-                                shadowColor: AppColors.primary.withOpacity(0.5),
-                              ),
-                              icon: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    // Rotating stars
-                                    AnimatedBuilder(
-                                      animation: _starController,
-                                      builder: (context, child) {
-                                        return Stack(
-                                          alignment: Alignment.center,
-                                          children: List.generate(8, (index) {
-                                            final baseAngle = (index / 8) * 2 * pi;
-                                            final randomOffset = _randomOffsets[index];
-                                            final oscillation = sin(_starController.value * 2 * pi + randomOffset);
-                                            final distance = 10 + oscillation * 2;
-                                            final starRotation = _starController.value * 4 * pi + randomOffset;
-                                            final opacity = 0.3 + (0.7 * (sin(_starController.value * 2 * pi + randomOffset) + 1) / 2);
-                                            
-                                            return Transform.translate(
-                                              offset: Offset(
-                                                cos(baseAngle + _starController.value * pi) * distance,
-                                                sin(baseAngle + _starController.value * pi) * distance,
-                                              ),
-                                              child: Transform.rotate(
-                                                angle: starRotation,
-                                                child: Icon(
-                                                  Icons.star,
-                                                  size: 6,
-                                                  color: Colors.amber.withOpacity(opacity),
-                                                ),
-                                              ),
-                                            );
-                                          }),
-                                        );
-                                      },
+                  );
+                }
+
+                final newMessages = snapshot.data!.docs.map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  return <String, dynamic>{
+                    'id': doc.id,
+                    'senderId': data['senderId'],
+                    'receiverId': data['receiverId'],
+                    'content': data['content'],
+                    'timestamp': data['timestamp'],
+                    'isRead': data['isRead'] ?? false,
+                  };
+                }).toList();
+
+                _messages = newMessages;
+                _lastDocument = snapshot.data!.docs.last;
+
+                return ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  reverse: true,
+                  itemCount: _messages.length + (_hasMoreMessages ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == _messages.length) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: _isLoadingMore
+                              ? const CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                                )
+                              : TextButton(
+                                  onPressed: _loadMoreMessages,
+                                  child: Text(
+                                    'Daha fazla mesaj yükle',
+                                    style: TextStyle(
+                                      color: AppColors.primary,
+                                      fontSize: 14,
                                     ),
-                                    // Coin background glow
-                                    Container(
-                                      width: 12,
-                                      height: 12,
+                                  ),
+                                ),
+                        ),
+                      );
+                    }
+
+                    final message = _messages[_messages.length - 1 - index];
+                    final isMe = message['senderId'] == _authService.currentUser?.uid;
+                    final timestamp = message['timestamp'] as Timestamp?;
+                    final time = timestamp?.toDate() ?? DateTime.now();
+                                            
+                    return Align(
+                      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                       decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
+                          gradient: isMe
+                              ? LinearGradient(
+                                  colors: [AppColors.primary, AppColors.primaryLight],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                )
+                              : null,
+                          color: isMe ? null : AppColors.surface,
+                          borderRadius: BorderRadius.circular(16),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: Colors.amber[300]!.withOpacity(0.5),
-                                            blurRadius: 8,
-                                            spreadRadius: 2,
+                              color: AppColors.shadow.withOpacity(0.1),
+                              spreadRadius: 1,
+                              blurRadius: 5,
+                              offset: const Offset(0, 2),
                                           ),
                                         ],
                                       ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              message['content'],
+                              style: TextStyle(
+                                color: isMe ? AppColors.surface : AppColors.textPrimary,
+                                fontSize: 14,
                                     ),
-                                    // Main coin icon
-                                    const Icon(
-                                      Icons.circle,
-                                      size: 12,
-                                      color: Colors.amber,
-                                    ),
-                                    // Coin symbol
-                                    const Text(
-                                      '₺',
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                            Text(
+                                  '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
                                       style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 8,
-                                        fontWeight: FontWeight.bold,
-                                        shadows: [
-                                          Shadow(
-                                            color: Colors.black26,
-                                            offset: Offset(0, 1),
-                                            blurRadius: 2,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
+                                    color: isMe ? AppColors.surface.withOpacity(0.7) : AppColors.textSecondary,
+                                    fontSize: 11,
+                                  ),
                                 ),
-                              ),
-                              label: const Text(
-                                'Ona bir görev ver',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
+                                if (isMe) ...[
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    message['isRead'] ? Icons.done_all : Icons.done,
+                                    size: 14,
+                                    color: AppColors.surface.withOpacity(0.7),
+                                  ),
+                                ],
+                              ],
                                 ),
-                              ),
+                          ],
                             ),
                           ),
                         );
                       },
+                        );
+                      },
                     ),
-                    const SizedBox(height: 16),
+              ),
                     Container(
-                      height: 4,
-                      width: 40,
-                      margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    _buildTabViewWithLoading(),
-                  ],
-                ),
+              color: AppColors.surface,
+                  boxShadow: [
+                    BoxShadow(
+                  color: AppColors.shadow.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 5,
+                      offset: const Offset(0, -2),
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
+                  child: Row(
+                    children: [
+                      Expanded(
+                          child: TextField(
+                            controller: _messageController,
+                            decoration: InputDecoration(
+                              hintText: 'Mesajınızı yazın...',
+                      hintStyle: TextStyle(color: AppColors.textSecondary),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide(color: AppColors.divider),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide(color: AppColors.divider),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide(color: AppColors.primary),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      filled: true,
+                      fillColor: AppColors.primaryBackground,
+                    ),
+                    maxLines: null,
+                    onSubmitted: (_) => _sendMessage(),
+                  ),
+                ),
+                const SizedBox(width: 8),
           Container(
-            width: 50,
-            height: 50,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+                    gradient: LinearGradient(
+                      colors: [AppColors.primary, AppColors.primaryLight],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
               shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
+                                        boxShadow: [
+                                          BoxShadow(
+                        color: AppColors.primary.withOpacity(0.3),
+                        spreadRadius: 1,
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildMediaGrid(List<String> imageUrls) {
-    return GridView.builder(
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 4,
-        mainAxisSpacing: 4,
-      ),
-      itemCount: imageUrls.length,
-      itemBuilder: (context, index) {
-        return GestureDetector(
-          onTap: () {
-            // TODO: Show full screen image
-          },
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: CachedNetworkImage(
-              imageUrl: imageUrls[index],
-              fit: BoxFit.cover,
-              placeholder: (context, url) => Container(
-                color: Colors.grey[200],
-                child: const Center(
+                  child: IconButton(
+                    icon: _isLoading
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
                   child: CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(AppColors.surface),
                     strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                            ),
+                          )
+                        : const Icon(
+                            Icons.send,
+                            color: AppColors.surface,
+                            size: 24,
+                          ),
+                    onPressed: _isLoading ? null : _sendMessage,
                   ),
                 ),
-              ),
-              errorWidget: (context, url, error) => Container(
-                color: Colors.grey[200],
-                child: const Icon(Icons.error),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildFileList(List<Map<String, String>> files) {
-    return ListView.builder(
-      itemCount: files.length,
-      itemBuilder: (context, index) {
-        final file = files[index];
-        return ListTile(
-          leading: const Icon(Icons.insert_drive_file),
-          title: Text(file['name']!),
-          subtitle: Text(file['size']!),
-          trailing: IconButton(
-            icon: const Icon(Icons.download),
-            onPressed: () {
-              // TODO: Download file
-            },
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildLinkList(List<Map<String, String>> links) {
-    return ListView.builder(
-      itemCount: links.length,
-      itemBuilder: (context, index) {
-        final link = links[index];
-        return ListTile(
-          leading: const Icon(Icons.link),
-          title: Text(link['title']!),
-          subtitle: Text(link['url']!),
-          trailing: IconButton(
-            icon: const Icon(Icons.open_in_new),
-            onPressed: () {
-              // TODO: Open link
-            },
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildTabViewWithLoading() {
-    return DefaultTabController(
-      length: 4,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TabBar(
-            isScrollable: true,
-            labelColor: AppColors.primary,
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: AppColors.primary,
-            tabs: const [
-              Tab(text: 'Fotoğraflar'),
-              Tab(text: 'Videolar'),
-              Tab(text: 'Dosyalar'),
-              Tab(text: 'Bağlantılar'),
-            ],
-          ),
-          SizedBox(
-            height: MediaQuery.of(context).size.height * 0.5,
-            child: TabBarView(
-              children: [
-                _buildMediaGrid([
-                  'https://picsum.photos/200/300',
-                  'https://picsum.photos/201/300',
-                  'https://picsum.photos/202/300',
-                  'https://picsum.photos/203/300',
-                  'https://picsum.photos/204/300',
-                  'https://picsum.photos/205/300',
-                  'https://picsum.photos/206/300',
-                  'https://picsum.photos/207/300',
-                  'https://picsum.photos/208/300',
-                ]),
-                _buildMediaGrid([
-                  'https://picsum.photos/209/300',
-                  'https://picsum.photos/210/300',
-                  'https://picsum.photos/211/300',
-                  'https://picsum.photos/212/300',
-                ]),
-                _buildFileList([
-                  {'name': 'Döküman.pdf', 'size': '2.5 MB'},
-                  {'name': 'Sunum.pptx', 'size': '5.1 MB'},
-                  {'name': 'Rapor.docx', 'size': '1.8 MB'},
-                  {'name': 'Proje.zip', 'size': '10.2 MB'},
-                  {'name': 'Resimler.rar', 'size': '8.7 MB'},
-                ]),
-                _buildLinkList([
-                  {'title': 'Google', 'url': 'https://google.com'},
-                  {'title': 'YouTube', 'url': 'https://youtube.com'},
-                  {'title': 'GitHub', 'url': 'https://github.com'},
-                  {'title': 'LinkedIn', 'url': 'https://linkedin.com'},
-                  {'title': 'Twitter', 'url': 'https://twitter.com'},
-                ]),
               ],
             ),
           ),

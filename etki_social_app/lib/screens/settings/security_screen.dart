@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../theme/colors.dart';
+import '../../constants/app_colors.dart';
 import '../../services/auth_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -51,7 +51,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
           content: Text(value 
             ? 'Giriş bilgileri kaydedilecek' 
             : 'Giriş bilgileri artık kaydedilmeyecek'),
-          backgroundColor: value ? Colors.green : Colors.grey,
+          backgroundColor: value ? AppColors.success : AppColors.textSecondary,
         ),
       );
     }
@@ -93,13 +93,13 @@ class _SecurityScreenState extends State<SecurityScreen> {
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 20),
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: AppColors.divider,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
               Icon(
                 Icons.logout,
-                color: Colors.red[400],
+                color: AppColors.error,
                 size: 40,
               ),
               const SizedBox(height: 16),
@@ -108,6 +108,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -115,7 +116,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
                 'Tüm cihazlardaki oturumlarınız sonlandırılacak. Devam etmek istiyor musunuz?',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.grey[600],
+                  color: AppColors.textSecondary,
                   fontSize: 16,
                 ),
               ),
@@ -129,13 +130,13 @@ class _SecurityScreenState extends State<SecurityScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
-                          side: BorderSide(color: Colors.grey[300]!),
+                          side: BorderSide(color: AppColors.divider),
                         ),
                       ),
                       child: const Text(
                         'İptal',
                         style: TextStyle(
-                          color: Colors.black87,
+                          color: AppColors.textPrimary,
                           fontSize: 16,
                         ),
                       ),
@@ -147,7 +148,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
                       onPressed: () => Navigator.pop(context, true),
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        backgroundColor: Colors.red,
+                        backgroundColor: AppColors.error,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -189,13 +190,13 @@ class _SecurityScreenState extends State<SecurityScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.primaryBackground,
       appBar: AppBar(
-        title: const Text('Güvenlik'),
-        backgroundColor: Colors.white,
+        title: const Text('Güvenlik', style: TextStyle(color: AppColors.textPrimary)),
+        backgroundColor: AppColors.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -208,7 +209,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
             _buildSection(
               title: 'Hesap Güvenliği',
               children: [
-                _buildSecurityButton(
+                _buildSecurityItem(
                   icon: Icons.lock_outline,
                   title: 'Şifre Değiştir',
                   subtitle: 'Hesap şifrenizi güncelleyin',
@@ -221,7 +222,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
                     );
                   },
                 ),
-                _buildSecurityButton(
+                _buildSecurityItem(
                   icon: Icons.email_outlined,
                   title: 'E-posta Değiştir',
                   subtitle: 'Hesap e-posta adresinizi güncelleyin',
@@ -256,7 +257,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
             _buildSection(
               title: 'Oturum Yönetimi',
               children: [
-                _buildSecurityButton(
+                _buildSecurityItem(
                   icon: Icons.devices_outlined,
                   title: 'Aktif Oturumlar',
                   subtitle: 'Açık olan tüm oturumları görüntüleyin',
@@ -269,7 +270,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
                     );
                   },
                 ),
-                _buildSecurityButton(
+                _buildSecurityItem(
                   icon: Icons.logout_outlined,
                   title: 'Tüm Oturumları Kapat',
                   subtitle: 'Tüm cihazlardaki oturumları sonlandırın',
@@ -283,7 +284,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
             _buildSection(
               title: 'Hesap İşlemleri',
               children: [
-                _buildSecurityButton(
+                _buildSecurityItem(
                   icon: Icons.delete_outline,
                   title: 'Hesabı Devre Dışı Bırak',
                   subtitle: 'Hesabınızı geçici olarak devre dışı bırakın',
@@ -291,7 +292,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
                     // TODO: Implement account deactivation
                   },
                 ),
-                _buildSecurityButton(
+                _buildSecurityItem(
                   icon: Icons.delete_forever_outlined,
                   title: 'Hesabı Sil',
                   subtitle: 'Hesabınızı kalıcı olarak silin',
@@ -299,7 +300,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
                     // TODO: Implement account deletion
                   },
                 ),
-                _buildSecurityButton(
+                _buildSecurityItem(
                   icon: Icons.logout_rounded,
                   title: 'Çıkış Yap',
                   subtitle: 'Hesabınızdan güvenli çıkış yapın',
@@ -320,11 +321,11 @@ class _SecurityScreenState extends State<SecurityScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: AppColors.primary.withOpacity(0.1),
             blurRadius: 10,
             spreadRadius: 2,
           ),
@@ -338,7 +339,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: AppColors.primary,
+              color: AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: 16),
@@ -348,7 +349,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
     );
   }
 
-  Widget _buildSecurityButton({
+  Widget _buildSecurityItem({
     required IconData icon,
     required String title,
     required String subtitle,
@@ -358,9 +359,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12.0),
+          padding: const EdgeInsets.symmetric(vertical: 12),
           child: Row(
             children: [
               Container(
@@ -385,14 +385,15 @@ class _SecurityScreenState extends State<SecurityScreen> {
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
+                        color: AppColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       subtitle,
                       style: TextStyle(
                         fontSize: 14,
-                        color: Colors.grey[600],
+                        color: AppColors.textSecondary,
                       ),
                     ),
                   ],
@@ -400,7 +401,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
               ),
               Icon(
                 Icons.chevron_right,
-                color: Colors.grey[400],
+                color: AppColors.divider,
               ),
             ],
           ),

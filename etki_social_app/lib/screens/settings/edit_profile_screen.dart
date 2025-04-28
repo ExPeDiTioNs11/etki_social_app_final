@@ -144,8 +144,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.primaryBackground,
       appBar: AppBar(
-        title: const Text('Profili Düzenle'),
+        title: const Text('Profili Düzenle', style: TextStyle(color: AppColors.textPrimary)),
+        backgroundColor: AppColors.surface,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: _userData == null
           ? const Center(child: CircularProgressIndicator())
@@ -208,20 +215,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
-                        color: Colors.grey[100],
+                        color: AppColors.surface,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey[300]!),
+                        border: Border.all(color: AppColors.divider),
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
                           value: _selectedCity,
                           isExpanded: true,
-                          hint: const Text('Şehir Seçin'),
-                          icon: const Icon(Icons.location_city),
+                          hint: Text('Şehir Seçin', style: TextStyle(color: AppColors.textSecondary)),
+                          icon: Icon(Icons.location_city, color: AppColors.primary),
                           items: _cities.map((String city) {
                             return DropdownMenuItem<String>(
                               value: city,
-                              child: Text(city),
+                              child: Text(city, style: TextStyle(color: AppColors.textPrimary)),
                             );
                           }).toList(),
                           onChanged: (String? newValue) {
@@ -238,11 +245,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.surface,
                         borderRadius: BorderRadius.circular(15),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.grey.withOpacity(0.1),
+                            color: AppColors.primary.withOpacity(0.1),
                             spreadRadius: 2,
                             blurRadius: 8,
                             offset: const Offset(0, 2),
@@ -254,12 +261,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
+                              Text(
                                 'Profil Tamamlanma',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.black87,
+                                  color: AppColors.textPrimary,
                                 ),
                               ),
                               Container(
@@ -291,7 +298,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               ),
                               builder: (context, value, _) => LinearProgressIndicator(
                                 value: value,
-                                backgroundColor: Colors.grey[100],
+                                backgroundColor: AppColors.primary.withOpacity(0.1),
                                 valueColor: AlwaysStoppedAnimation<Color>(
                                   _getCompletionColor(_completionPercentage),
                                 ),
@@ -304,7 +311,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             _getCompletionMessage(_completionPercentage),
                             style: TextStyle(
                               fontSize: 13,
-                              color: Colors.grey[600],
+                              color: AppColors.textSecondary,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -313,10 +320,32 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                     const SizedBox(height: 32),
                     // Save Button
-                    CustomButton(
-                      text: 'Kaydet',
+                    ElevatedButton(
                       onPressed: _isLoading ? null : _updateProfile,
-                      isLoading: _isLoading,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'Kaydet',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                     ),
                   ],
                 ),

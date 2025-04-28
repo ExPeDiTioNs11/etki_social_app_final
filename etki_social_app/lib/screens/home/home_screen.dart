@@ -6,6 +6,7 @@ import 'package:etki_social_app/models/post_model.dart';
 import 'package:etki_social_app/models/story.dart';
 import 'package:etki_social_app/widgets/post_card.dart';
 import 'package:etki_social_app/widgets/comment_card.dart';
+import 'package:etki_social_app/screens/profile/other_user_profile_screen.dart';
 import 'package:etki_social_app/screens/profile/profile_screen.dart';
 import 'package:etki_social_app/utils/user_utils.dart';
 import 'package:etki_social_app/screens/create_post/create_post_screen.dart';
@@ -231,6 +232,76 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   final AuthService _authService = AuthService();
 
+  // Arama geçmişi için yeni değişken
+  List<Map<String, dynamic>> _searchHistory = [];
+  
+  // Arama geçmişini Firebase'den yükle
+  Future<void> _loadSearchHistory() async {
+    try {
+      final user = _authService.currentUser;
+      if (user != null) {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('search_history')
+            .doc('recent')
+            .get();
+
+        if (doc.exists) {
+          setState(() {
+            _searchHistory = List<Map<String, dynamic>>.from(doc.data()?['searches'] ?? []);
+          });
+        }
+      }
+    } catch (e) {
+      print('Arama geçmişi yüklenirken hata: $e');
+    }
+  }
+
+  // Arama geçmişini Firebase'e kaydet
+  Future<void> _saveSearchHistory() async {
+    try {
+      final user = _authService.currentUser;
+      if (user != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('search_history')
+            .doc('recent')
+            .set({
+          'searches': _searchHistory,
+        });
+      }
+    } catch (e) {
+      print('Arama geçmişi kaydedilirken hata: $e');
+    }
+  }
+
+  // Arama geçmişine yeni öğe ekle
+  void _addToSearchHistory(String query, String type) {
+    if (query.trim().isEmpty) return;
+
+    setState(() {
+      // Varsa eski aramayı kaldır
+      _searchHistory.removeWhere((item) => item['query'] == query);
+      
+      // Yeni aramayı başa ekle
+      _searchHistory.insert(0, {
+        'query': query,
+        'type': type,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
+      
+      // Son 10 aramayı tut
+      if (_searchHistory.length > 10) {
+        _searchHistory = _searchHistory.sublist(0, 10);
+      }
+    });
+    
+    // Firebase'e kaydet
+    _saveSearchHistory();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -264,6 +335,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     // İlk yükleme
     _loadMissions();
+    _loadSearchHistory();
   }
 
   @override
@@ -409,30 +481,109 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
   }
 
-  void _filterSearchResults() {
+  void _filterSearchResults() async {
     final query = _searchController.text.toLowerCase();
-    if (query.isEmpty) {
-      setState(() {
-        _filteredResults = _searchResults;
-      });
-      return;
-    }
-
     setState(() {
-      _filteredResults = _searchResults.where((result) {
-        final matchesQuery = result['title'].toLowerCase().contains(query) ||
-            result['subtitle'].toLowerCase().contains(query);
-        
-        if (_selectedCategory == 'Tümü') {
-          return matchesQuery;
-        } else if (_selectedCategory == 'Kullanıcılar') {
-          return matchesQuery && result['type'] == 'user';
-        } else if (_selectedCategory == 'Görevler') {
-          return matchesQuery && result['type'] == 'mission';
-        }
-        return false;
-      }).toList();
+      _isLoading = true;
     });
+
+    try {
+      if (query.isEmpty) {
+        setState(() {
+          _filteredResults = [];
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // Görev araması - tasks koleksiyonundan
+      final tasksQuery = await FirebaseFirestore.instance
+          .collection('tasks')
+          .get();
+
+      // Kullanıcı araması
+      final usersQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .get();
+
+      List<Map<String, dynamic>> results = [];
+
+      // Kullanıcı sonuçlarını filtrele ve ekle
+      if (_selectedCategory == 'Tümü' || _selectedCategory == 'Kullanıcılar') {
+        results.addAll(usersQuery.docs.where((doc) {
+          final data = doc.data();
+          final username = (data['username'] ?? '').toString().toLowerCase();
+          return username.contains(query);
+        }).map((doc) {
+          final data = doc.data();
+          return {
+            'id': doc.id,
+            'title': data['username'] ?? 'İsimsiz Kullanıcı',
+            'subtitle': data['bio'] ?? '',
+            'image': data['profileImage'] ?? '',
+            'type': 'user',
+            'isUser': true,
+          };
+        }));
+      }
+
+      // Görev sonuçlarını filtrele ve ekle
+      if (_selectedCategory == 'Tümü' || _selectedCategory == 'Görevler') {
+        results.addAll(tasksQuery.docs.where((doc) {
+          final data = doc.data();
+          final title = (data['title'] ?? '').toString().toLowerCase();
+          final description = (data['description'] ?? '').toString().toLowerCase();
+          return title.contains(query) || description.contains(query);
+        }).map((doc) {
+          final data = doc.data();
+          return {
+            'id': doc.id,
+            'title': data['title'] ?? 'İsimsiz Görev',
+            'subtitle': data['description'] ?? '',
+            'image': data['image'] ?? '',
+            'type': 'mission',
+            'isUser': false,
+            'reward': data['coinAmount'],
+          };
+        }));
+      }
+
+      // Sonuçları benzerlik skoruna göre sırala
+      results.sort((a, b) {
+        final aTitle = a['title'].toString().toLowerCase();
+        final bTitle = b['title'].toString().toLowerCase();
+        final aScore = _calculateSimilarity(aTitle, query);
+        final bScore = _calculateSimilarity(bTitle, query);
+        return bScore.compareTo(aScore);
+      });
+
+      setState(() {
+        _filteredResults = results;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Arama hatası: $e');
+      setState(() {
+        _filteredResults = [];
+        _isLoading = false;
+      });
+    }
+  }
+
+  // Benzerlik skorunu hesaplayan yardımcı fonksiyon
+  double _calculateSimilarity(String text, String query) {
+    text = text.toLowerCase();
+    query = query.toLowerCase();
+    
+    if (text == query) return 1.0;
+    if (text.contains(query)) return 0.8;
+    
+    int matchCount = 0;
+    for (int i = 0; i < query.length && i < text.length; i++) {
+      if (text[i] == query[i]) matchCount++;
+    }
+    
+    return matchCount / query.length;
   }
 
   void _handleCategorySelect(String category) {
@@ -443,8 +594,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   void _handleSearchItemTap(Map<String, dynamic> item) {
-    // TODO: Navigate to appropriate screen based on item type
-    print('Selected item: ${item['title']}');
+    // Arama geçmişine ekle
+    _addToSearchHistory(item['title'], item['type']);
+    
+    if (item['type'] == 'user') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => OtherUserProfileScreen(
+            userId: item['id'],
+          ),
+        ),
+      );
+    } else if (item['type'] == 'mission') {
+      // TODO: Görev detay sayfasına yönlendir
+      print('Görev detayına git: ${item['id']}');
+    }
   }
 
   void _showSearchScreen() {
@@ -454,107 +619,84 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => DraggableScrollableSheet(
-        initialChildSize: 0.9,
-        minChildSize: 0.5,
-        maxChildSize: 0.9,
-        builder: (context, scrollController) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              // Search Header
-              Container(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back, color: Colors.black),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                        Expanded(
-                          child: Container(
-                            height: 45,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[100],
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: TextField(
-                              controller: _searchController,
-                              autofocus: true,
-                              decoration: InputDecoration(
-                                hintText: 'Kullanıcı, görev veya mesaj ara...',
-                                hintStyle: TextStyle(color: Colors.grey[600]),
-                                prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+          initialChildSize: 0.9,
+          minChildSize: 0.5,
+          maxChildSize: 0.9,
+          builder: (context, scrollController) => Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back, color: Colors.black),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                          Expanded(
+                            child: Container(
+                              height: 45,
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: TextField(
+                                controller: _searchController,
+                                autofocus: true,
+                                decoration: InputDecoration(
+                                  hintText: 'Kullanıcı veya görev ara...',
+                                  hintStyle: TextStyle(color: Colors.grey[600]),
+                                  prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                                ),
+                                onChanged: (value) {
+                                  _filterSearchResults();
+                                },
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    // Search Categories
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
                             _buildSearchCategory('Tümü', _selectedCategory == 'Tümü', setModalState),
                             _buildSearchCategory('Kullanıcılar', _selectedCategory == 'Kullanıcılar', setModalState),
                             _buildSearchCategory('Görevler', _selectedCategory == 'Görevler', setModalState),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Search Results
-              Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    // Recent Searches
-                    if (_searchController.text.isEmpty) ...[
-                      const Text(
-                        'Son Aramalar',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      ..._recentSearches.map((search) => _buildRecentSearchItem(search['query'])),
                     ],
-                    // Search Results
-                    if (_searchController.text.isNotEmpty) ...[
-                      ..._filteredResults.map((result) => _buildSearchResultItem(
-                        title: result['title'],
-                        subtitle: result['subtitle'],
-                        image: result['image'],
-                        isUser: result['isUser'],
-                        onTap: () => _handleSearchItemTap(result),
-                      )),
-                    ],
-                  ],
+                  ),
                 ),
-              ),
-            ],
+                Expanded(
+                  child: _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _searchController.text.isEmpty
+                          ? _buildRecentSearches(scrollController)
+                          : _buildSearchResults(scrollController),
+                ),
+              ],
             ),
           ),
         ),
@@ -594,32 +736,235 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildRecentSearchItem(String query) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          _searchController.text = query;
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+  Widget _buildRecentSearches(ScrollController scrollController) {
+    if (_searchHistory.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.history, size: 48, color: AppColors.primary.withOpacity(0.5)),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Henüz arama geçmişi yok',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Yaptığınız aramalar burada görünecek',
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView(
+      controller: scrollController,
+      padding: const EdgeInsets.all(16),
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(Icons.history, color: Colors.grey[600], size: 20),
-              const SizedBox(width: 16),
-              Text(
-                query,
-                style: TextStyle(
-                  color: Colors.grey[800],
-                  fontSize: 15,
+              Row(
+                children: [
+                  Icon(
+                    Icons.history,
+                    size: 20,
+                    color: AppColors.primary.withOpacity(0.7),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Son Aramalar',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              TextButton.icon(
+                onPressed: () async {
+                  // Silme animasyonu için
+                  setState(() {
+                    _searchHistory.clear();
+                  });
+                  await _saveSearchHistory();
+                },
+                icon: Icon(
+                  Icons.delete_outline,
+                  size: 18,
+                  color: AppColors.primary.withOpacity(0.7),
+                ),
+                label: Text(
+                  'Temizle',
+                  style: TextStyle(
+                    color: AppColors.primary.withOpacity(0.7),
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-              const Spacer(),
-              Icon(Icons.north_west, color: Colors.grey[600], size: 16),
             ],
           ),
         ),
-      ),
+        const SizedBox(height: 12),
+        ..._searchHistory.asMap().entries.map((entry) {
+          final index = entry.key;
+          final search = entry.value;
+          return AnimatedContainer(
+            duration: Duration(milliseconds: 200 + (index * 50)),
+            curve: Curves.easeInOut,
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  _searchController.text = search['query'];
+                  _filterSearchResults();
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          search['type'] == 'user' ? Icons.person : Icons.assignment,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              search['query'],
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 15,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              search['type'] == 'user' ? 'Kullanıcı' : 'Görev',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.close,
+                          color: Colors.grey[400],
+                          size: 18,
+                        ),
+                        onPressed: () async {
+                          setState(() {
+                            _searchHistory.removeAt(index);
+                          });
+                          await _saveSearchHistory();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ],
+    );
+  }
+
+  Widget _buildSearchResults(ScrollController scrollController) {
+    if (_filteredResults.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              _selectedCategory == 'Kullanıcılar' ? Icons.person_off :
+              _selectedCategory == 'Görevler' ? Icons.assignment_turned_in_outlined :
+              Icons.search_off,
+              size: 48,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _selectedCategory == 'Kullanıcılar' ? 'Kullanıcı bulunamadı' :
+              _selectedCategory == 'Görevler' ? 'Görev bulunamadı' :
+              'Sonuç bulunamadı',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Farklı bir arama terimi deneyin',
+              style: TextStyle(
+                color: Colors.grey[500],
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      controller: scrollController,
+      padding: const EdgeInsets.all(16),
+      itemCount: _filteredResults.length,
+      itemBuilder: (context, index) {
+        final result = _filteredResults[index];
+        return _buildSearchResultItem(
+          title: result['title'],
+          subtitle: result['subtitle'],
+          image: result['image'],
+          isUser: result['isUser'],
+          onTap: () => _handleSearchItemTap(result),
+        );
+      },
     );
   }
 
@@ -643,11 +988,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 height: 40,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  image: DecorationImage(
-                    image: NetworkImage(image),
-                    fit: BoxFit.cover,
-                  ),
+                  image: image.isNotEmpty
+                      ? DecorationImage(
+                          image: NetworkImage(image),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
+                  color: image.isEmpty ? Colors.grey[200] : null,
                 ),
+                child: image.isEmpty
+                    ? Icon(
+                        isUser ? Icons.person : Icons.assignment,
+                        color: Colors.grey[400],
+                        size: 20,
+                      )
+                    : null,
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -661,14 +1016,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         fontSize: 15,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 13,
+                    if (subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 13,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../theme/colors.dart';
+import '../../constants/app_colors.dart';
 
 class LanguageScreen extends StatefulWidget {
   const LanguageScreen({super.key});
@@ -13,8 +13,8 @@ class _LanguageScreenState extends State<LanguageScreen> {
   bool _isAutoLanguageEnabled = false;
 
   final List<Map<String, String>> _languages = [
-    {'code': 'tr', 'name': 'Türkçe', 'nativeName': 'Türkçe'},
-    {'code': 'en', 'name': 'English', 'nativeName': 'English'},
+    {'id': 'tr', 'name': 'Türkçe', 'description': 'Türkçe'},
+    {'id': 'en', 'name': 'English', 'description': 'English'},
     {'code': 'de', 'name': 'Deutsch', 'nativeName': 'Deutsch'},
     {'code': 'fr', 'name': 'Français', 'nativeName': 'Français'},
     {'code': 'es', 'name': 'Español', 'nativeName': 'Español'},
@@ -30,13 +30,13 @@ class _LanguageScreenState extends State<LanguageScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.primaryBackground,
       appBar: AppBar(
-        title: const Text('Dil'),
-        backgroundColor: Colors.white,
+        title: const Text('Dil', style: TextStyle(color: AppColors.textPrimary)),
+        backgroundColor: AppColors.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -47,7 +47,7 @@ class _LanguageScreenState extends State<LanguageScreen> {
             padding: const EdgeInsets.all(16),
             margin: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
@@ -81,6 +81,7 @@ class _LanguageScreenState extends State<LanguageScreen> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
+                          color: AppColors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -88,7 +89,7 @@ class _LanguageScreenState extends State<LanguageScreen> {
                         'Cihaz dilini kullan',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey[600],
+                          color: AppColors.textSecondary,
                         ),
                       ),
                     ],
@@ -137,32 +138,46 @@ class _LanguageScreenState extends State<LanguageScreen> {
                       decoration: BoxDecoration(
                         color: isSelected
                             ? AppColors.primary.withOpacity(0.1)
-                            : Colors.white,
+                            : AppColors.surface,
                         border: Border(
                           bottom: BorderSide(
-                            color: Colors.grey.withOpacity(0.1),
+                            color: AppColors.divider,
                           ),
                         ),
                       ),
                       child: Row(
                         children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.language_outlined,
+                              color: AppColors.primary,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   language['name']!,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w500,
+                                    color: AppColors.textPrimary,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  language['nativeName']!,
+                                  language['description']!,
                                   style: TextStyle(
                                     fontSize: 14,
-                                    color: Colors.grey[600],
+                                    color: AppColors.textSecondary,
                                   ),
                                 ),
                               ],

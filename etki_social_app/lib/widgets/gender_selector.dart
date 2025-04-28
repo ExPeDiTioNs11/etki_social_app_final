@@ -1,24 +1,39 @@
 import 'package:flutter/material.dart';
-import 'package:etki_social_app/utils/theme.dart';
+import 'package:etki_social_app/constants/app_colors.dart';
 
-class GenderSelector extends StatelessWidget {
+class GenderSelector extends StatefulWidget {
   final Function(String) onGenderSelected;
+  final String? selectedGender;
 
   const GenderSelector({
     super.key,
     required this.onGenderSelected,
+    this.selectedGender,
   });
+
+  @override
+  State<GenderSelector> createState() => _GenderSelectorState();
+}
+
+class _GenderSelectorState extends State<GenderSelector> {
+  String? _selectedGender;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedGender = widget.selectedGender;
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Cinsiyet',
           style: TextStyle(
             fontSize: 16,
-            color: AppTheme.textPrimary,
+            color: AppColors.textPrimary,
           ),
         ),
         const SizedBox(height: 8),
@@ -28,7 +43,7 @@ class GenderSelector extends StatelessWidget {
               child: _buildGenderOption(
                 'Erkek',
                 Icons.male,
-                AppTheme.primaryColor,
+                AppColors.primary,
               ),
             ),
             const SizedBox(width: 16),
@@ -36,7 +51,7 @@ class GenderSelector extends StatelessWidget {
               child: _buildGenderOption(
                 'Kadın',
                 Icons.female,
-                AppTheme.secondaryColor,
+                AppColors.secondary,
               ),
             ),
             const SizedBox(width: 16),
@@ -44,7 +59,7 @@ class GenderSelector extends StatelessWidget {
               child: _buildGenderOption(
                 'Diğer',
                 Icons.transgender,
-                AppTheme.info,
+                AppColors.info,
               ),
             ),
           ],
@@ -54,16 +69,23 @@ class GenderSelector extends StatelessWidget {
   }
 
   Widget _buildGenderOption(String label, IconData icon, Color color) {
+    final isSelected = _selectedGender == label;
+    
     return InkWell(
-      onTap: () => onGenderSelected(label),
+      onTap: () {
+        setState(() {
+          _selectedGender = label;
+        });
+        widget.onGenderSelected(label);
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isSelected ? color.withOpacity(0.1) : AppColors.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: AppTheme.divider,
-            width: 1,
+            color: isSelected ? color : AppColors.divider,
+            width: isSelected ? 2 : 1,
           ),
         ),
         child: Column(
@@ -71,14 +93,15 @@ class GenderSelector extends StatelessWidget {
             Icon(
               icon,
               size: 24,
-              color: color,
+              color: isSelected ? color : AppColors.textSecondary,
             ),
             const SizedBox(height: 8),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
-                color: AppTheme.textPrimary,
+                color: isSelected ? color : AppColors.textPrimary,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ],

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../theme/colors.dart';
+import '../../constants/app_colors.dart';
 import '../../services/auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
@@ -27,7 +27,6 @@ class _ActiveSessionsScreenState extends State<ActiveSessionsScreen> {
     try {
       final user = _authService.currentUser;
       if (user != null) {
-        // Firebase Auth'dan oturum bilgilerini al
         final List<Map<String, dynamic>> sessions = [];
         final userMetadata = await FirebaseAuth.instance.currentUser?.getIdTokenResult();
         
@@ -40,8 +39,6 @@ class _ActiveSessionsScreenState extends State<ActiveSessionsScreen> {
             'isCurrentDevice': true,
           });
 
-          // Diğer cihazlardan giriş yapılan oturumları da ekle
-          // Not: Bu bilgiler Firebase Console'dan aktif edilmeli
           final fetchedTokens = await user.getIdTokenResult(true);
           if (fetchedTokens.claims?['sessions'] != null) {
             for (var session in fetchedTokens.claims!['sessions']) {
@@ -76,7 +73,6 @@ class _ActiveSessionsScreenState extends State<ActiveSessionsScreen> {
   Future<void> _terminateSession(Map<String, dynamic> session) async {
     try {
       if (!session['isCurrentDevice']) {
-        // Firebase'de oturumu sonlandır
         await _authService.terminateSession(session['deviceId']);
         
         setState(() {
@@ -92,7 +88,6 @@ class _ActiveSessionsScreenState extends State<ActiveSessionsScreen> {
           );
         }
       } else {
-        // Mevcut cihaz oturumunu sonlandır
         await _authService.signOut();
         if (mounted) {
           context.go('/login');
@@ -112,7 +107,6 @@ class _ActiveSessionsScreenState extends State<ActiveSessionsScreen> {
 
   String _formatDate(DateTime? date) {
     if (date == null) return 'Bilinmiyor';
-    // Türkiye saatine çevir (UTC+3)
     final turkeyTime = date.add(const Duration(hours: 3));
     return '${turkeyTime.day}/${turkeyTime.month}/${turkeyTime.year} ${turkeyTime.hour.toString().padLeft(2, '0')}:${turkeyTime.minute.toString().padLeft(2, '0')}';
   }
@@ -132,13 +126,13 @@ class _ActiveSessionsScreenState extends State<ActiveSessionsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppColors.primaryBackground,
       appBar: AppBar(
-        title: const Text('Aktif Oturumlar'),
-        backgroundColor: Colors.white,
+        title: const Text('Aktif Oturumlar', style: TextStyle(color: AppColors.textPrimary)),
+        backgroundColor: AppColors.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -151,207 +145,339 @@ class _ActiveSessionsScreenState extends State<ActiveSessionsScreen> {
                       child: Text(
                         'Aktif oturum bulunamadı',
                         style: TextStyle(
-                          color: Colors.grey[600],
+                          color: AppColors.textPrimary,
                           fontSize: 16,
                         ),
                       ),
                     )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _sessions.length,
-                      itemBuilder: (context, index) {
-                        final session = _sessions[index];
-                        final isCurrentDevice = session['isCurrentDevice'] ?? false;
+                  : ListView(
+                      children: [
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          padding: const EdgeInsets.all(16),
+                          itemCount: _sessions.length,
+                          itemBuilder: (context, index) {
+                            final session = _sessions[index];
+                            final isCurrentDevice = session['isCurrentDevice'] ?? false;
 
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 10,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.all(16),
-                            leading: Container(
-                              padding: const EdgeInsets.all(12),
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 16),
                               decoration: BoxDecoration(
-                                color: isCurrentDevice
-                                    ? AppColors.primary.withOpacity(0.1)
-                                    : Colors.grey[100],
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.devices,
-                                color: isCurrentDevice
-                                    ? AppColors.primary
-                                    : Colors.grey[600],
-                              ),
-                            ),
-                            title: Row(
-                              children: [
-                                Text(
-                                  isCurrentDevice ? 'Bu Cihaz' : 'Diğer Cihaz',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                if (isCurrentDevice) ...[
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green[50],
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      'Aktif',
-                                      style: TextStyle(
-                                        color: Colors.green[700],
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.primary.withOpacity(0.1),
+                                    blurRadius: 10,
+                                    spreadRadius: 2,
                                   ),
                                 ],
-                              ],
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Platform: ${_getPlatformName(session['platform'])}',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                    fontSize: 14,
+                              ),
+                              child: ListTile(
+                                contentPadding: const EdgeInsets.all(16),
+                                leading: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: isCurrentDevice
+                                        ? AppColors.primary.withOpacity(0.1)
+                                        : AppColors.surface,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.devices,
+                                    color: isCurrentDevice
+                                        ? AppColors.primary
+                                        : AppColors.textSecondary,
                                   ),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Son Giriş: ${_formatDate(session['lastSignInTime'])}',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.logout),
-                              color: Colors.red,
-                              onPressed: () => showModalBottomSheet(
-                                context: context,
-                                shape: const RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.vertical(
-                                    top: Radius.circular(20),
-                                  ),
-                                ),
-                                builder: (context) => Container(
-                                  padding: const EdgeInsets.all(20),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
+                                title: Row(
+                                  children: [
+                                    Text(
+                                      isCurrentDevice ? 'Bu Cihaz' : 'Diğer Cihaz',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    if (isCurrentDevice) ...[
+                                      const SizedBox(width: 8),
                                       Container(
-                                        width: 40,
-                                        height: 4,
-                                        margin: const EdgeInsets.only(bottom: 20),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
                                         decoration: BoxDecoration(
-                                          color: Colors.grey[300],
-                                          borderRadius: BorderRadius.circular(2),
+                                          color: AppColors.primary.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          'Aktif',
+                                          style: TextStyle(
+                                            color: AppColors.primary,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                          ),
                                         ),
                                       ),
-                                      Icon(
-                                        Icons.logout,
-                                        color: Colors.red[400],
-                                        size: 40,
+                                    ],
+                                  ],
+                                ),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Platform: ${_getPlatformName(session['platform'])}',
+                                      style: TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 14,
                                       ),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        isCurrentDevice
-                                            ? 'Çıkış Yap'
-                                            : 'Oturumu Sonlandır',
-                                        style: const TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Son Giriş: ${_formatDate(session['lastSignInTime'])}',
+                                      style: TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 14,
                                       ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        isCurrentDevice
-                                            ? 'Çıkış yapmak istediğinize emin misiniz?'
-                                            : 'Bu cihazdaki oturumu sonlandırmak istediğinize emin misiniz?',
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: Colors.grey[600],
-                                          fontSize: 16,
-                                        ),
+                                    ),
+                                  ],
+                                ),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.logout),
+                                  color: AppColors.primary,
+                                  onPressed: () => showModalBottomSheet(
+                                    context: context,
+                                    shape: const RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.vertical(
+                                        top: Radius.circular(20),
                                       ),
-                                      const SizedBox(height: 24),
-                                      Row(
+                                    ),
+                                    builder: (context) => Container(
+                                      padding: const EdgeInsets.all(20),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Expanded(
-                                            child: TextButton(
-                                              onPressed: () => Navigator.pop(context),
-                                              style: TextButton.styleFrom(
-                                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius: BorderRadius.circular(8),
-                                                  side: BorderSide(color: Colors.grey[300]!),
-                                                ),
-                                              ),
-                                              child: const Text(
-                                                'İptal',
-                                                style: TextStyle(
-                                                  color: Colors.black87,
-                                                  fontSize: 16,
-                                                ),
-                                              ),
+                                          Container(
+                                            width: 40,
+                                            height: 4,
+                                            margin: const EdgeInsets.only(bottom: 20),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.divider,
+                                              borderRadius: BorderRadius.circular(2),
                                             ),
                                           ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: TextButton(
-                                              onPressed: () {
-                                                Navigator.pop(context);
-                                                _terminateSession(session);
-                                              },
-                                              style: TextButton.styleFrom(
-                                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                                backgroundColor: Colors.red,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius: BorderRadius.circular(8),
-                                                ),
-                                              ),
-                                              child: Text(
-                                                isCurrentDevice
-                                                    ? 'Çıkış Yap'
-                                                    : 'Sonlandır',
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 16,
-                                                ),
-                                              ),
+                                          Icon(
+                                            Icons.logout,
+                                            color: AppColors.primary,
+                                            size: 40,
+                                          ),
+                                          const SizedBox(height: 16),
+                                          Text(
+                                            isCurrentDevice
+                                                ? 'Çıkış Yap'
+                                                : 'Oturumu Sonlandır',
+                                            style: const TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
                                             ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            isCurrentDevice
+                                                ? 'Çıkış yapmak istediğinize emin misiniz?'
+                                                : 'Bu cihazdaki oturumu sonlandırmak istediğinize emin misiniz?',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              color: AppColors.textSecondary,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 24),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: TextButton(
+                                                  onPressed: () => Navigator.pop(context),
+                                                  style: TextButton.styleFrom(
+                                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(8),
+                                                      side: BorderSide(color: AppColors.divider),
+                                                    ),
+                                                  ),
+                                                  child: const Text(
+                                                    'İptal',
+                                                    style: TextStyle(
+                                                      color: AppColors.textPrimary,
+                                                      fontSize: 16,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: TextButton(
+                                                  onPressed: () {
+                                                    Navigator.pop(context);
+                                                    _terminateSession(session);
+                                                  },
+                                                  style: TextButton.styleFrom(
+                                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                                    backgroundColor: AppColors.primary,
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(8),
+                                                    ),
+                                                  ),
+                                                  child: Text(
+                                                    isCurrentDevice
+                                                        ? 'Çıkış Yap'
+                                                        : 'Sonlandır',
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 16,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ],
                                       ),
-                                    ],
+                                    ),
                                   ),
                                 ),
                               ),
+                            );
+                          },
+                        ),
+                        // Tüm Cihazlardan Çıkış Yap Butonu
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: ElevatedButton(
+                            onPressed: () => showModalBottomSheet(
+                              context: context,
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(20),
+                                ),
+                              ),
+                              builder: (context) => Container(
+                                padding: const EdgeInsets.all(20),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      height: 4,
+                                      margin: const EdgeInsets.only(bottom: 20),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.divider,
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.logout,
+                                      color: AppColors.primary,
+                                      size: 40,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    const Text(
+                                      'Tüm Cihazlardan Çıkış Yap',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Tüm cihazlardaki oturumlarınız sonlandırılacak. Devam etmek istiyor musunuz?',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextButton(
+                                            onPressed: () => Navigator.pop(context),
+                                            style: TextButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(vertical: 12),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                                side: BorderSide(color: AppColors.divider),
+                                              ),
+                                            ),
+                                            child: const Text(
+                                              'İptal',
+                                              style: TextStyle(
+                                                color: AppColors.textPrimary,
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: TextButton(
+                                            onPressed: () async {
+                                              Navigator.pop(context);
+                                              try {
+                                                // Önce tüm oturumları sonlandır
+                                                await _authService.signOutAllSessions();
+                                                // Sonra mevcut cihazdan çıkış yap
+                                                await _authService.signOut();
+                                                if (mounted) {
+                                                  context.go('/login');
+                                                }
+                                              } catch (e) {
+                                                if (mounted) {
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(
+                                                      content: Text('Hata oluştu: $e'),
+                                                      backgroundColor: Colors.red,
+                                                    ),
+                                                  );
+                                                }
+                                              }
+                                            },
+                                            style: TextButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(vertical: 12),
+                                              backgroundColor: AppColors.primary,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                            ),
+                                            child: const Text(
+                                              'Tümünü Sonlandır',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              minimumSize: const Size(double.infinity, 48),
+                            ),
+                            child: const Text('Tüm Cihazlardan Çıkış Yap'),
                           ),
-                        );
-                      },
+                        ),
+                      ],
                     ),
             ),
     );
