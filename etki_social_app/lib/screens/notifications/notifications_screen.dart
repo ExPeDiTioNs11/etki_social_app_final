@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/notification_model.dart';
-import '../../theme/colors.dart';
+
+// Mor/eflatun tema renkleri
+const Color primaryPurple = Color(0xFFF8F6FF);
+const Color primaryPurpleLight = Color(0xFFFF7262);
+const Color surfaceColor = Colors.white;
+const Color backgroundColor = Color(0xFFFFF5F4);
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -131,20 +136,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: const Text('Bildirimler'),
+        title: const Text('Bildirimler', style: TextStyle(color: Color(0xFFFF7262))),
         centerTitle: true,
         elevation: 0,
-        backgroundColor: AppColors.background,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () {
-              // TODO: Implement notification settings
-            },
-          ),
-        ],
+        backgroundColor: surfaceColor,
+        actions: [],
       ),
       body: Stack(
         children: [
@@ -163,11 +161,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
                 curve: Curves.easeInOut,
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 decoration: BoxDecoration(
-                  color: notification.isRead ? Colors.white : AppColors.primary.withOpacity(0.05),
+                  color: notification.isRead ? surfaceColor : primaryPurpleLight,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: primaryPurple.withOpacity(0.1),
                       blurRadius: 10,
                       offset: const Offset(0, 2),
                     ),
@@ -194,15 +192,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
-                                  color: notification.isRead ? Colors.black87 : AppColors.primary,
+                                  color: notification.isRead ? const Color(0xFFFF7262) : primaryPurple,
                                 ),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 _getTimeAgo(notification.createdAt),
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 12,
-                                  color: Colors.grey[600],
+                                  color: Color(0xFFFFFFFF),
                                 ),
                               ),
                             ],
@@ -212,8 +210,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
                           Container(
                             width: 8,
                             height: 8,
-                            decoration: const BoxDecoration(
-                              color: AppColors.primary,
+                            decoration: BoxDecoration(
+                              color: primaryPurple,
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -388,11 +386,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
               curve: Curves.easeInOut,
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               decoration: BoxDecoration(
-                color: notification.isRead ? Colors.white : AppColors.primary.withOpacity(0.05),
+                color: notification.isRead ? Colors.white : primaryPurpleLight,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: primaryPurple.withOpacity(0.1),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -409,7 +407,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
                         height: 48,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: AppColors.primary,
+                          color: primaryPurple,
                         ),
                         child: const Icon(Icons.person_add, color: Colors.white, size: 24),
                       )
@@ -456,15 +454,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
-                              color: notification.isRead ? Colors.black87 : AppColors.primary,
+                              color: notification.isRead ? const Color(0xFFFF7262) : primaryPurple,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             _getTimeAgo(notification.createdAt),
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 12,
-                              color: Colors.grey[600],
+                              color: Color(0xFFFFFFFF),
                             ),
                           ),
                         ],
@@ -474,8 +472,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> with SingleTi
                       Container(
                         width: 8,
                         height: 8,
-                        decoration: const BoxDecoration(
-                          color: AppColors.primary,
+                        decoration: BoxDecoration(
+                          color: primaryPurple,
                           shape: BoxShape.circle,
                         ),
                       ),

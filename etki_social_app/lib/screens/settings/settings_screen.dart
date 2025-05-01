@@ -5,9 +5,6 @@ import 'edit_profile_screen.dart';
 import 'privacy_screen.dart';
 import 'notifications_screen.dart';
 import 'security_screen.dart';
-import 'language_screen.dart';
-import 'theme_screen.dart';
-import 'storage_screen.dart';
 import 'help_screen.dart';
 import 'about_screen.dart';
 
@@ -195,45 +192,6 @@ class SettingsScreen extends StatelessWidget {
                 _buildSection(
                   title: 'Uygulama',
                   items: [
-                    _buildSettingItem(
-                      icon: Icons.language_outlined,
-                      title: 'Dil',
-                      subtitle: 'Türkçe',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const LanguageScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    _buildSettingItem(
-                      icon: Icons.dark_mode_outlined,
-                      title: 'Tema',
-                      subtitle: 'Sistem',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ThemeScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    _buildSettingItem(
-                      icon: Icons.storage_outlined,
-                      title: 'Depolama',
-                      subtitle: 'Önbellek ve veri kullanımı',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const StorageScreen(),
-                          ),
-                        );
-                      },
-                    ),
                     _buildSettingItem(
                       icon: Icons.help_outline,
                       title: 'Yardım',

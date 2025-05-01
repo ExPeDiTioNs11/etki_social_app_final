@@ -15,6 +15,9 @@ import '../notifications/notifications_screen.dart';
 import '../messages/messages_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:etki_social_app/services/auth_service.dart';
+import 'package:etki_social_app/screens/create_group/create_group_screen.dart';
+import 'package:etki_social_app/widgets/group_card.dart';
+import 'package:etki_social_app/screens/group/group_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -305,7 +308,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this, initialIndex: 2);
+    _tabController = TabController(length: 4, vsync: this, initialIndex: 1);
     _speedDialController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 200),
@@ -325,7 +328,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         return;
       }
       // Görevler tabına geçildiğinde görevleri yükle
-      if (_tabController.index == 3) {
+      if (_tabController.index == 2) {
         _loadMissions();
       }
       if (mounted) {
@@ -1056,6 +1059,39 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           title: const Text('Etki'),
           centerTitle: true,
           elevation: 0,
+          leading: Container(
+            margin: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.primary,
+                  AppColors.primary.withOpacity(0.8),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.group_add, color: Colors.white, size: 20),
+              padding: const EdgeInsets.all(8),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CreateGroupScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
           actions: [
             IconButton(
               icon: const Icon(Icons.search),
@@ -1133,24 +1169,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     index: 0,
                   ),
                   _buildTab(
-                    icon: Icons.explore,
-                    label: 'Keşfet',
-                    index: 1,
-                  ),
-                  _buildTab(
                     icon: Icons.people_outline,
                     label: 'Takip',
-                    index: 2,
+                    index: 1,
                   ),
                   _buildTab(
                     icon: Icons.assignment,
                     label: 'Görevler',
-                    index: 3,
+                    index: 2,
                   ),
                   _buildTab(
                     icon: Icons.groups,
                     label: 'Gruplar',
-                    index: 4,
+                    index: 3,
                   ),
                 ],
               ),
@@ -1166,29 +1197,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           children: [
             // Profilim Tab
             const ProfileScreen(),
-            
-            // Keşfet Tab
-            RefreshIndicator(
-              onRefresh: () async {
-                // TODO: Implement refresh for explore tab
-                await Future.delayed(const Duration(seconds: 1));
-              },
-              child: ListView.builder(
-                itemCount: _explorePosts.where((post) => post.type != PostType.mission).length,
-                itemBuilder: (context, index) {
-                  final nonMissionPosts = _explorePosts.where((post) => post.type != PostType.mission).toList();
-                  final post = nonMissionPosts[index];
-                  return PostCard(
-                    post: post,
-                    onLike: () => _handlePostLike(post),
-                    onComment: () => _showComments(context, post),
-                    onShare: () {
-                      print('Post shared: ${post.id}');
-                    },
-                  );
-                },
-              ),
-            ),
             
             // Takip Tab
             const FollowingTab(),
@@ -1243,15 +1251,28 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 await Future.delayed(const Duration(seconds: 1));
               },
               child: ListView.builder(
-                itemCount: _groupPosts.length,
+                itemCount: _groups.length,
                 itemBuilder: (context, index) {
-                  final post = _groupPosts[index];
-                  return PostCard(
-                    post: post,
-                    onLike: () => _handlePostLike(post),
-                    onComment: () => _showComments(context, post),
-                    onShare: () {
-                      print('Post shared: ${post.id}');
+                  final group = _groups[index];
+                  return GroupCard(
+                    groupId: group['id'],
+                    groupName: group['name'],
+                    groupImage: group['image'],
+                    bio: group['bio'],
+                    memberCount: group['memberCount'],
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => GroupScreen(
+                            groupId: group['id'],
+                            groupName: group['name'],
+                            groupImage: group['image'],
+                            memberCount: group['memberCount'],
+                            isAdmin: false, // TODO: Implement admin check
+                          ),
+                        ),
+                      );
                     },
                   );
                 },
@@ -1438,4 +1459,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       }
     }
   }
+
+  // Gruplar için örnek veriler
+  final List<Map<String, dynamic>> _groups = List.generate(5, (index) => {
+    'id': 'group_$index',
+    'name': 'Grup ${index + 1}',
+    'image': 'https://picsum.photos/200?random=$index',
+    'bio': 'Bu grup ${index + 1} için örnek bir açıklama metni. Grup hakkında kısa bilgiler burada yer alacak.',
+    'memberCount': (index + 1) * 10,
+  });
 } 
