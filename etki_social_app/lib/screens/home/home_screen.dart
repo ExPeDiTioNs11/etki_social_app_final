@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:etki_social_app/constants/app_colors.dart';
 import 'package:etki_social_app/models/post_model.dart';
 import 'package:etki_social_app/models/story.dart';
+import 'package:etki_social_app/models/group.dart';
 import 'package:etki_social_app/widgets/post_card.dart';
 import 'package:etki_social_app/widgets/comment_card.dart';
 import 'package:etki_social_app/screens/profile/other_user_profile_screen.dart';
@@ -15,6 +16,7 @@ import '../notifications/notifications_screen.dart';
 import '../messages/messages_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:etki_social_app/services/auth_service.dart';
+import 'package:etki_social_app/services/group_service.dart';
 import 'package:etki_social_app/screens/create_group/create_group_screen.dart';
 import 'package:etki_social_app/widgets/group_card.dart';
 import 'package:etki_social_app/screens/group/group_screen.dart';
@@ -234,6 +236,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   List<Map<String, dynamic>> _filteredResults = [];
 
   final AuthService _authService = AuthService();
+  final GroupService _groupService = GroupService();
+  List<Group> _userGroups = [];
+  bool _isLoadingGroups = false;
 
   // Arama geçmişi için yeni değişken
   List<Map<String, dynamic>> _searchHistory = [];
@@ -339,6 +344,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     // İlk yükleme
     _loadMissions();
     _loadSearchHistory();
+    _loadGroups();
   }
 
   @override
@@ -1245,39 +1251,40 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
             
             // Gruplar Tab
-            RefreshIndicator(
-              onRefresh: () async {
-                // TODO: Implement refresh for groups tab
-                await Future.delayed(const Duration(seconds: 1));
-              },
-              child: ListView.builder(
-                itemCount: _groups.length,
-                itemBuilder: (context, index) {
-                  final group = _groups[index];
-                  return GroupCard(
-                    groupId: group['id'],
-                    groupName: group['name'],
-                    groupImage: group['image'],
-                    bio: group['bio'],
-                    memberCount: group['memberCount'],
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => GroupScreen(
-                            groupId: group['id'],
-                            groupName: group['name'],
-                            groupImage: group['image'],
-                            memberCount: group['memberCount'],
-                            isAdmin: false, // TODO: Implement admin check
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
+            _isLoadingGroups
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: _loadGroups,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount: _userGroups.length,
+                      itemBuilder: (context, index) {
+                        final group = _userGroups[index];
+                        return GroupCard(
+                          groupId: group.id,
+                          groupName: group.name,
+                          groupImage: group.imageUrl,
+                          bio: group.description,
+                          memberCount: group.members.length,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => GroupScreen(
+                                  groupId: group.id,
+                                  groupName: group.name,
+                                  groupImage: group.imageUrl,
+                                  memberCount: group.members.length,
+                                  isAdmin: group.creatorId == _authService.currentUser?.uid,
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
           ],
         ),
         floatingActionButton: FloatingActionButton(
@@ -1460,12 +1467,37 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
   }
 
-  // Gruplar için örnek veriler
-  final List<Map<String, dynamic>> _groups = List.generate(5, (index) => {
-    'id': 'group_$index',
-    'name': 'Grup ${index + 1}',
-    'image': 'https://picsum.photos/200?random=$index',
-    'bio': 'Bu grup ${index + 1} için örnek bir açıklama metni. Grup hakkında kısa bilgiler burada yer alacak.',
-    'memberCount': (index + 1) * 10,
-  });
+  Future<void> _loadGroups() async {
+    if (mounted) {
+      setState(() => _isLoadingGroups = true);
+    }
+
+    try {
+      final currentUser = _authService.currentUser;
+      if (currentUser == null) {
+        throw Exception('Kullanıcı girişi yapılmamış');
+      }
+
+      // Kullanıcının gruplarını dinle
+      _groupService.getUserGroups(currentUser.uid).listen((groups) {
+        if (mounted) {
+          setState(() {
+            _userGroups = groups;
+            _isLoadingGroups = false;
+          });
+        }
+      });
+    } catch (e) {
+      print('Gruplar yüklenirken hata: $e');
+      if (mounted) {
+        setState(() => _isLoadingGroups = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gruplar yüklenirken bir hata oluştu: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 } 

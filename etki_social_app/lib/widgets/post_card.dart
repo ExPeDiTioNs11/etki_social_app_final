@@ -9,6 +9,7 @@ import '../screens/mission/mission_details_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:etki_social_app/services/auth_service.dart';
 import 'package:go_router/go_router.dart';
+import 'package:etki_social_app/screens/comments/comment_screen.dart';
 
 class PostCard extends StatefulWidget {
   final Post post;
@@ -549,22 +550,60 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
       child: Row(
         children: [
           // Profile Image
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: AppColors.primary.withOpacity(0.2),
-            backgroundImage: _userData?['profileImageUrl'] != null || _userData?['profileImage'] != null
-                ? NetworkImage(_userData?['profileImageUrl'] ?? _userData?['profileImage'] ?? '')
-                : null,
-            child: _userData?['profileImageUrl'] == null && _userData?['profileImage'] == null
-                ? Text(
-                    (_userData?['username'] ?? 'K')[0].toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
+          Stack(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: AppColors.primary.withOpacity(0.2),
+                backgroundImage: _userData?['profileImageUrl'] != null || _userData?['profileImage'] != null
+                    ? NetworkImage(_userData?['profileImageUrl'] ?? _userData?['profileImage'] ?? '')
+                    : null,
+                child: _userData?['profileImageUrl'] == null && _userData?['profileImage'] == null
+                    ? Text(
+                        (_userData?['username'] ?? 'K')[0].toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
+                      )
+                    : null,
+              ),
+              if (_userData?['isVerified'] ?? false)
+                Positioned(
+                  right: -2,
+                  bottom: -2,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
                     ),
-                  )
-                : null,
+                    child: const Icon(
+                      Icons.verified,
+                      size: 12,
+                      color: Colors.blue,
+                    ),
+                  ),
+                ),
+              if (_userData?['missionCount'] != null && _userData!['missionCount'] >= 10)
+                Positioned(
+                  right: 12,
+                  bottom: -2,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.verified,
+                      size: 12,
+                      color: Colors.amber,
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(width: 12),
           // Username and time
@@ -673,7 +712,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
               Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: widget.onComment,
+                  onTap: _handleCommentTap,
                   borderRadius: BorderRadius.circular(20),
                   child: Padding(
                     padding: const EdgeInsets.all(8),
@@ -814,6 +853,28 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
             ),
           ),
       ],
+    );
+  }
+
+  void _handleCommentTap() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.9,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (_, controller) => CommentScreen(
+          post: widget.post,
+          onCommentAdded: (comment) {
+            setState(() {
+              widget.post.comments.add(comment);
+            });
+          },
+          collection: widget.post.type == PostType.mission ? 'tasks' : 'posts',
+        ),
+      ),
     );
   }
 } 

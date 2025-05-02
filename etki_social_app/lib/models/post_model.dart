@@ -4,57 +4,52 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class Comment {
   final String id;
   final String userId;
+  final String username;
   final String content;
   final DateTime createdAt;
-  final List<Comment> replies;
-  final List<String> likes;
-  final String? userAvatar;
-  final String? username;
   final bool isVerified;
+  final List<String> likes;
+  final List<Comment> replies;
+  final String? replyTo;
 
   Comment({
-    String? id,
+    required this.id,
     required this.userId,
+    required this.username,
     required this.content,
-    DateTime? createdAt,
-    List<Comment>? replies,
+    required this.createdAt,
+    this.isVerified = false,
     List<String>? likes,
-    this.userAvatar,
-    this.username,
-    bool? isVerified,
-  })  : id = id ?? const Uuid().v4(),
-        createdAt = createdAt ?? DateTime.now(),
-        likes = likes ?? [],
-        replies = replies ?? [],
-        isVerified = isVerified ?? false;
+    List<Comment>? replies,
+    this.replyTo,
+  })  : likes = likes ?? [],
+        replies = replies ?? [];
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'userId': userId,
-      'content': content,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'replies': replies.map((reply) => reply.toMap()).toList(),
-      'likes': likes,
-      'userAvatar': userAvatar,
       'username': username,
+      'content': content,
+      'createdAt': createdAt.toIso8601String(),
       'isVerified': isVerified,
+      'likes': likes,
+      'replies': replies.map((r) => r.toMap()).toList(),
+      'replyTo': replyTo,
     };
   }
 
   factory Comment.fromMap(Map<String, dynamic> map) {
     return Comment(
-      id: map['id'],
-      userId: map['userId'],
-      content: map['content'],
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
-      replies: (map['replies'] as List?)
-          ?.map((reply) => Comment.fromMap(reply))
-          .toList() ?? [],
-      likes: List<String>.from(map['likes'] ?? []),
-      userAvatar: map['userAvatar'],
-      username: map['username'],
+      id: map['id'] ?? '',
+      userId: map['userId'] ?? '',
+      username: map['username'] ?? '',
+      content: map['content'] ?? '',
+      createdAt: DateTime.parse(map['createdAt'] ?? DateTime.now().toIso8601String()),
       isVerified: map['isVerified'] ?? false,
+      likes: List<String>.from(map['likes'] ?? []),
+      replies: List<Comment>.from((map['replies'] ?? []).map((r) => Comment.fromMap(r))),
+      replyTo: map['replyTo'],
     );
   }
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:etki_social_app/constants/app_colors.dart';
+import 'package:etki_social_app/services/group_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class CreateGroupScreen extends StatefulWidget {
   const CreateGroupScreen({super.key});
@@ -22,6 +24,8 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> with TickerProvid
   late Animation<double> _buttonAnimation;
   late AnimationController _imageController;
   late Animation<double> _imageAnimation;
+  final GroupService _groupService = GroupService();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   @override
   void initState() {
@@ -70,8 +74,19 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> with TickerProvid
     setState(() => _isLoading = true);
 
     try {
-      // Simüle edilmiş grup oluşturma işlemi
-      await Future.delayed(const Duration(seconds: 2));
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) {
+        throw Exception('Kullanıcı girişi yapılmamış');
+      }
+
+      final group = await _groupService.createGroup(
+        name: _nameController.text,
+        description: _bioController.text,
+        imageFile: _groupImage,
+        creatorId: currentUser.uid,
+        maxParticipants: _isUnlimited ? 0 : int.parse(_maxParticipantsController.text),
+        isUnlimited: _isUnlimited,
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -90,7 +105,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> with TickerProvid
             ),
           ),
         );
-        Navigator.pop(context);
+        Navigator.pop(context, group);
       }
     } catch (e) {
       if (mounted) {
@@ -351,7 +366,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> with TickerProvid
                       ),
                       const SizedBox(width: 16),
                       Container(
-                        width: 120,
+                        width: 140,
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
                           color: Colors.grey[50],
@@ -360,7 +375,10 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> with TickerProvid
                         child: CheckboxListTile(
                           title: const Text(
                             'Sınırsız',
-                            style: TextStyle(fontSize: 12),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                           value: _isUnlimited,
                           onChanged: (value) {

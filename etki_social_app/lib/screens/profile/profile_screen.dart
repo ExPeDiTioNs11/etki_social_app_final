@@ -78,6 +78,8 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
             'bio': userData['bio'] ?? '',
             'fullName': userData['fullName'] ?? '',
             'createdAt': userData['createdAt'],
+            'isVerified': userData['isVerified'] ?? false,
+            'completedMissionsCount': userData['completedMissionsCount'] ?? 0,
           };
           _isLoading = false;
         });
@@ -768,6 +770,49 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                       ),
                     ),
                     const SizedBox(height: 12),
+                    // Onaylanmış Kullanıcı Ol butonu
+                    if (!(_userData?['isVerified'] ?? false))
+                      InkWell(
+                        onTap: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (context) => const VerificationSubscriptionModal(),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.blue.withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.verified,
+                                color: Colors.blue,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Onaylanmış Kullanıcı Ol',
+                                style: TextStyle(
+                                  color: Colors.blue,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
@@ -792,7 +837,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                               context: context,
                               isScrollControlled: true,
                               backgroundColor: Colors.transparent,
-                              builder: (context) => const FollowersListModal(),
+                              builder: (context) => FollowersListModal(userId: _authService.currentUser?.uid),
                             );
                           },
                           child: Row(
@@ -803,7 +848,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                'Takipçi',
+                                'Takip edenler',
                                 style: TextStyle(color: Colors.grey[600]),
                               ),
                             ],
@@ -817,7 +862,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                               context: context,
                               isScrollControlled: true,
                               backgroundColor: Colors.transparent,
-                              builder: (context) => const FollowingListModal(),
+                              builder: (context) => FollowingListModal(userId: _authService.currentUser?.uid),
                             );
                           },
                           child: Row(
@@ -854,15 +899,24 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                         // Completed Missions
                         Row(
                           children: [
-                            Text(
-                              '12',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            Icon(
+                              (_userData?['completedMissionsCount'] ?? 0) >= 10
+                                  ? Icons.verified
+                                  : Icons.check_circle,
+                              size: 18,
+                              color: (_userData?['completedMissionsCount'] ?? 0) >= 10
+                                  ? Colors.amber
+                                  : Colors.grey[600],
                             ),
                             const SizedBox(width: 4),
-                            Icon(
-                              Icons.check_circle_outline,
-                              size: 16,
-                              color: Colors.grey[600],
+                            Text(
+                              (_userData?['completedMissionsCount'] ?? 0).toString(),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: (_userData?['completedMissionsCount'] ?? 0) >= 10
+                                    ? Colors.amber
+                                    : Colors.grey[800],
+                              ),
                             ),
                           ],
                         ),
@@ -1412,7 +1466,7 @@ class _ProfileScreenState extends State<ProfileScreen> with TickerProviderStateM
                 ? AppColors.primary
                 : isGoldPackage
                   ? const Color(0xFFFFD700)
-                  : isPopular 
+                : isPopular 
                     ? AppColors.primary.withOpacity(0.5)
                     : Colors.grey[200]!,
               width: isSelected ? 2 : 1,
@@ -1818,7 +1872,7 @@ class _CoinPurchaseModalState extends State<CoinPurchaseModal> {
                 ? AppColors.primary
                 : isGoldPackage
                   ? const Color(0xFFFFD700)
-                  : isPopular 
+                : isPopular 
                     ? AppColors.primary.withOpacity(0.5)
                     : Colors.grey[200]!,
               width: isSelected ? 2 : 1,
@@ -1998,6 +2052,293 @@ class _CoinPurchaseModalState extends State<CoinPurchaseModal> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class VerificationSubscriptionModal extends StatefulWidget {
+  const VerificationSubscriptionModal({super.key});
+
+  @override
+  State<VerificationSubscriptionModal> createState() => _VerificationSubscriptionModalState();
+}
+
+class _VerificationSubscriptionModalState extends State<VerificationSubscriptionModal> {
+  bool _isYearly = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      ),
+      child: Column(
+        children: [
+          // Modal Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Onaylanmış Kullanıcı Ol',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // Modal Content
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Subscription Type Toggle
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildSubscriptionToggle(
+                          'Aylık',
+                          _isYearly ? Colors.grey[400]! : Colors.blue,
+                          _isYearly ? Colors.grey[200]! : Colors.blue.withOpacity(0.1),
+                        ),
+                        _buildSubscriptionToggle(
+                          'Yıllık',
+                          _isYearly ? Colors.blue : Colors.grey[400]!,
+                          _isYearly ? Colors.blue.withOpacity(0.1) : Colors.grey[200]!,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Benefits
+                  const Text(
+                    'Onaylanmış Kullanıcı Avantajları',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildBenefitItem(
+                    Icons.verified,
+                    'Mavi Tik Rozeti',
+                    'Profilinizde ve gönderilerinizde mavi tik rozeti görünür',
+                  ),
+                  _buildBenefitItem(
+                    Icons.trending_up,
+                    'Görünürlük Artışı',
+                    'Gönderileriniz daha fazla kullanıcıya ulaşır',
+                  ),
+                  _buildBenefitItem(
+                    Icons.support_agent,
+                    'Öncelikli Destek',
+                    '7/24 öncelikli müşteri desteği',
+                  ),
+                  const SizedBox(height: 24),
+                  // Pricing
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          _isYearly ? 'Yıllık Plan' : 'Aylık Plan',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              _isYearly ? '₺299' : '₺29',
+                              style: const TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _isYearly ? '/yıl' : '/ay',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (_isYearly) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              '2 ay ücretsiz',
+                              style: TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Purchase Button
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  // TODO: Implement purchase logic
+                  Navigator.pop(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                ),
+                child: const Text(
+                  'Satın Al',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubscriptionToggle(String text, Color textColor, Color backgroundColor) {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _isYearly = text == 'Yıllık';
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            color: textColor,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBenefitItem(IconData icon, String title, String description) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              color: Colors.blue,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

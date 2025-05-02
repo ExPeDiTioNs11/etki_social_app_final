@@ -3,6 +3,8 @@ import 'package:etki_social_app/constants/app_colors.dart';
 import 'package:etki_social_app/models/post_model.dart';
 import 'package:etki_social_app/widgets/post_card.dart';
 import 'package:etki_social_app/widgets/comment_card.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class GroupScreen extends StatefulWidget {
   final String groupId;
@@ -30,6 +32,8 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
   List<Post> _groupPosts = [];
   List<Map<String, dynamic>> _participants = [];
   List<Post> _groupTasks = [];
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   @override
   void initState() {
@@ -42,46 +46,35 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
     setState(() => _isLoading = true);
     
     try {
-      // TODO: Implement actual data loading from Firebase
-      await Future.delayed(const Duration(seconds: 1));
-      
-      // Örnek veriler
-      _groupPosts = List.generate(5, (index) => Post(
-        id: 'post_$index',
-        userId: 'user_$index',
-        content: 'Grup gönderisi $index',
-        type: PostType.text,
-        createdAt: DateTime.now().subtract(Duration(hours: index)),
-        isVerified: true,
-        comments: [],
-        likes: [],
-      ));
+      // Grup katılımcılarını yükle
+      final groupDoc = await _firestore.collection('groups').doc(widget.groupId).get();
+      if (!groupDoc.exists) {
+        throw Exception('Grup bulunamadı');
+      }
 
-      _participants = List.generate(10, (index) => {
-        'id': 'user_$index',
-        'name': 'Kullanıcı $index',
-        'image': 'https://picsum.photos/200?random=$index',
-        'isAdmin': index == 0,
+      final groupData = groupDoc.data()!;
+      final List<String> memberIds = List<String>.from(groupData['members'] ?? []);
+
+      // Katılımcı bilgilerini yükle
+      final participants = await Future.wait(
+        memberIds.map((userId) async {
+          final userDoc = await _firestore.collection('users').doc(userId).get();
+          if (!userDoc.exists) return null;
+
+          final userData = userDoc.data()!;
+          return {
+            'id': userId,
+            'name': userData['username'] ?? 'İsimsiz Kullanıcı',
+            'image': userData['profileImage'] ?? '',
+            'isAdmin': userId == groupData['creatorId'],
+          };
+        }),
+      );
+
+      setState(() {
+        _participants = participants.whereType<Map<String, dynamic>>().toList();
+        _isLoading = false;
       });
-
-      _groupTasks = List.generate(3, (index) => Post(
-        id: 'task_$index',
-        userId: 'admin',
-        content: 'Grup görevi $index',
-        type: PostType.mission,
-        missionTitle: 'Görev ${index + 1}',
-        missionDescription: 'Bu görevi tamamlamak için yapmanız gerekenler...',
-        missionReward: (index + 1) * 100,
-        missionDeadline: DateTime.now().add(Duration(days: index + 1)),
-        missionParticipants: [],
-        maxParticipants: 10,
-        createdAt: DateTime.now().subtract(Duration(hours: index)),
-        isVerified: true,
-        comments: [],
-        likes: [],
-      ));
-
-      setState(() => _isLoading = false);
     } catch (e) {
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -248,22 +241,66 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
                 ? const Center(child: CircularProgressIndicator())
                 : RefreshIndicator(
                     onRefresh: _loadGroupData,
-                    child: ListView.builder(
-                      itemCount: _groupPosts.length,
-                      itemBuilder: (context, index) {
-                        final post = _groupPosts[index];
-                        return PostCard(
-                          post: post,
-                          onLike: () {
-                            // TODO: Implement like functionality
-                          },
-                          onComment: () => _showComments(context, post),
-                          onShare: () {
-                            // TODO: Implement share functionality
-                          },
-                        );
-                      },
-                    ),
+                    child: _groupPosts.isEmpty
+                        ? ListView(
+                            children: [
+                              SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                              Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[100],
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        Icons.post_add,
+                                        size: 32,
+                                        color: Colors.grey[400],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'Henüz bir gönderi paylaşılmamış',
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    if (widget.isAdmin) ...[
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'İlk gönderiyi paylaşmak için + butonuna tıklayın',
+                                        style: TextStyle(
+                                          color: Colors.grey[400],
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          )
+                        : ListView.builder(
+                            itemCount: _groupPosts.length,
+                            itemBuilder: (context, index) {
+                              final post = _groupPosts[index];
+                              return PostCard(
+                                post: post,
+                                onLike: () {
+                                  // TODO: Implement like functionality
+                                },
+                                onComment: () => _showComments(context, post),
+                                onShare: () {
+                                  // TODO: Implement share functionality
+                                },
+                              );
+                            },
+                          ),
                   ),
 
             // Katılımcılar Tab
@@ -277,7 +314,12 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
                         final participant = _participants[index];
                         return ListTile(
                           leading: CircleAvatar(
-                            backgroundImage: NetworkImage(participant['image']),
+                            backgroundImage: participant['image'].isNotEmpty
+                                ? NetworkImage(participant['image'])
+                                : null,
+                            child: participant['image'].isEmpty
+                                ? const Icon(Icons.person)
+                                : null,
                           ),
                           title: Text(participant['name']),
                           subtitle: participant['isAdmin']
@@ -287,7 +329,7 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
                               ? IconButton(
                                   icon: const Icon(Icons.more_vert),
                                   onPressed: () {
-                                    // TODO: Show participant options menu
+                                    _showParticipantOptions(participant);
                                   },
                                 )
                               : null,
@@ -301,22 +343,66 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
                 ? const Center(child: CircularProgressIndicator())
                 : RefreshIndicator(
                     onRefresh: _loadGroupData,
-                    child: ListView.builder(
-                      itemCount: _groupTasks.length,
-                      itemBuilder: (context, index) {
-                        final task = _groupTasks[index];
-                        return PostCard(
-                          post: task,
-                          onLike: () {
-                            // TODO: Implement like functionality
-                          },
-                          onComment: () => _showComments(context, task),
-                          onShare: () {
-                            // TODO: Implement share functionality
-                          },
-                        );
-                      },
-                    ),
+                    child: _groupTasks.isEmpty
+                        ? ListView(
+                            children: [
+                              SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                              Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[100],
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        Icons.assignment_outlined,
+                                        size: 32,
+                                        color: Colors.grey[400],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'Henüz bir görev oluşturulmamış',
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    if (widget.isAdmin) ...[
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'İlk görevi oluşturmak için + butonuna tıklayın',
+                                        style: TextStyle(
+                                          color: Colors.grey[400],
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          )
+                        : ListView.builder(
+                            itemCount: _groupTasks.length,
+                            itemBuilder: (context, index) {
+                              final task = _groupTasks[index];
+                              return PostCard(
+                                post: task,
+                                onLike: () {
+                                  // TODO: Implement like functionality
+                                },
+                                onComment: () => _showComments(context, task),
+                                onShare: () {
+                                  // TODO: Implement share functionality
+                                },
+                              );
+                            },
+                          ),
                   ),
           ],
         ),
@@ -331,6 +417,134 @@ class _GroupScreenState extends State<GroupScreen> with SingleTickerProviderStat
             )
           : null,
     );
+  }
+
+  void _showParticipantOptions(Map<String, dynamic> participant) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.remove_circle_outline),
+              title: const Text('Gruptan Çıkar'),
+              onTap: () async {
+                Navigator.pop(context);
+                await _removeParticipant(participant['id']);
+              },
+            ),
+            if (participant['isAdmin'])
+              ListTile(
+                leading: const Icon(Icons.admin_panel_settings),
+                title: const Text('Yöneticilikten Çıkar'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _removeAdmin(participant['id']);
+                },
+              )
+            else
+              ListTile(
+                leading: const Icon(Icons.admin_panel_settings),
+                title: const Text('Yönetici Yap'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _makeAdmin(participant['id']);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _removeParticipant(String userId) async {
+    try {
+      await _firestore.collection('groups').doc(widget.groupId).update({
+        'members': FieldValue.arrayRemove([userId])
+      });
+
+      await _firestore.collection('users').doc(userId).update({
+        'groups': FieldValue.arrayRemove([widget.groupId])
+      });
+
+      setState(() {
+        _participants.removeWhere((p) => p['id'] == userId);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Kullanıcı gruptan çıkarıldı'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Hata: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _makeAdmin(String userId) async {
+    try {
+      await _firestore.collection('groups').doc(widget.groupId).update({
+        'admins': FieldValue.arrayUnion([userId])
+      });
+
+      setState(() {
+        final index = _participants.indexWhere((p) => p['id'] == userId);
+        if (index != -1) {
+          _participants[index]['isAdmin'] = true;
+        }
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Kullanıcı yönetici yapıldı'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Hata: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _removeAdmin(String userId) async {
+    try {
+      await _firestore.collection('groups').doc(widget.groupId).update({
+        'admins': FieldValue.arrayRemove([userId])
+      });
+
+      setState(() {
+        final index = _participants.indexWhere((p) => p['id'] == userId);
+        if (index != -1) {
+          _participants[index]['isAdmin'] = false;
+        }
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Kullanıcının yöneticiliği kaldırıldı'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Hata: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }
 

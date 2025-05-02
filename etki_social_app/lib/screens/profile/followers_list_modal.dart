@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../theme/colors.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:etki_social_app/services/auth_service.dart';
 
 class FollowersListModal extends StatefulWidget {
-  const FollowersListModal({Key? key}) : super(key: key);
+  final String? userId;
+  const FollowersListModal({Key? key, this.userId}) : super(key: key);
 
   @override
   State<FollowersListModal> createState() => _FollowersListModalState();
@@ -12,51 +15,78 @@ class FollowersListModal extends StatefulWidget {
 class _FollowersListModalState extends State<FollowersListModal> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  List<Map<String, dynamic>> _followers = [];
+  bool _isLoading = true;
+  final AuthService _authService = AuthService();
+  String? _currentUserId;
 
-  // Örnek takipçi verileri
-  final List<Map<String, dynamic>> _followers = [
-    {
-      'id': '1',
-      'name': 'Ahmet Yılmaz',
-      'username': '@ahmetyilmaz',
-      'image': 'https://picsum.photos/200',
-      'isFollowing': true,
-    },
-    {
-      'id': '2',
-      'name': 'Ayşe Demir',
-      'username': '@aysedemir',
-      'image': 'https://picsum.photos/201',
-      'isFollowing': false,
-    },
-    {
-      'id': '3',
-      'name': 'Mehmet Kaya',
-      'username': '@mehmetkaya',
-      'image': 'https://picsum.photos/202',
-      'isFollowing': true,
-    },
-    {
-      'id': '4',
-      'name': 'Zeynep Şahin',
-      'username': '@zeynepsahin',
-      'image': 'https://picsum.photos/203',
-      'isFollowing': false,
-    },
-    {
-      'id': '5',
-      'name': 'Can Öztürk',
-      'username': '@canozturk',
-      'image': 'https://picsum.photos/204',
-      'isFollowing': true,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _currentUserId = _authService.currentUser?.uid;
+    _fetchFollowers();
+  }
+
+  Future<void> _fetchFollowers() async {
+    setState(() => _isLoading = true);
+    try {
+      final userId = widget.userId;
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      final followerIds = List<String>.from(userDoc.data()?['followers'] ?? []);
+      List<Map<String, dynamic>> followers = [];
+      for (final id in followerIds) {
+        final doc = await FirebaseFirestore.instance.collection('users').doc(id).get();
+        if (doc.exists) {
+          final data = doc.data()!;
+          followers.add({
+            'id': id,
+            'name': data['username'] ?? '',
+            'username': '@${data['username'] ?? ''}',
+            'image': data['profileImage'] ?? data['profileImageUrl'] ?? '',
+            'isFollowing': (data['followers'] as List?)?.contains(userId) ?? false,
+            'completedMissionsCount': data['completedMissionsCount'] ?? 0,
+          });
+        }
+      }
+      setState(() {
+        _followers = followers;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _unfollow(String targetUserId) async {
+    if (_currentUserId == null) return;
+    try {
+      // Kendi following listesinden çıkar
+      await FirebaseFirestore.instance.collection('users').doc(_currentUserId).update({
+        'following': FieldValue.arrayRemove([targetUserId])
+      });
+      // Karşı tarafın followers listesinden çıkar
+      await FirebaseFirestore.instance.collection('users').doc(targetUserId).update({
+        'followers': FieldValue.arrayRemove([_currentUserId])
+      });
+      setState(() {
+        _followers = _followers.map((f) {
+          if (f['id'] == targetUserId) {
+            return {...f, 'isFollowing': false};
+          }
+          return f;
+        }).toList();
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Takipten çıkarılırken hata: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
 
   List<Map<String, dynamic>> get _filteredFollowers {
     if (_searchQuery.isEmpty) {
       return _followers;
     }
-    
     final query = _searchQuery.toLowerCase();
     return _followers.where((follower) {
       final name = follower['name'].toString().toLowerCase();
@@ -169,61 +199,50 @@ class _FollowersListModalState extends State<FollowersListModal> {
           ),
           // Takipçi listesi
           Expanded(
-            child: _filteredFollowers.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[50],
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.search_off,
-                            size: 48,
-                            color: Colors.grey[400],
-                          ),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _filteredFollowers.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[50],
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.search_off,
+                                size: 48,
+                                color: Colors.grey[400],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Takipçi bulunamadı',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Farklı bir arama terimi deneyin',
+                              style: TextStyle(
+                                color: Colors.grey[500],
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Takipçi bulunamadı',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Farklı bir arama terimi deneyin',
-                          style: TextStyle(
-                            color: Colors.grey[500],
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _filteredFollowers.length,
-                    itemBuilder: (context, index) {
-                      final follower = _filteredFollowers[index];
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(15),
-                          border: Border.all(
-                            color: Colors.grey[200]!,
-                            width: 1,
-                          ),
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
+                      )
+                    : ListView.builder(
+                        itemCount: _filteredFollowers.length,
+                        itemBuilder: (context, index) {
+                          final follower = _filteredFollowers[index];
+                          return InkWell(
                             onTap: () {
                               // TODO: Profil sayfasına yönlendir
                             },
@@ -234,7 +253,12 @@ class _FollowersListModalState extends State<FollowersListModal> {
                                 children: [
                                   CircleAvatar(
                                     radius: 28,
-                                    backgroundImage: CachedNetworkImageProvider(follower['image']),
+                                    backgroundImage: follower['image'].isNotEmpty
+                                        ? CachedNetworkImageProvider(follower['image'])
+                                        : null,
+                                    child: follower['image'].isEmpty
+                                        ? const Icon(Icons.person, size: 28, color: Colors.grey)
+                                        : null,
                                   ),
                                   const SizedBox(width: 16),
                                   Expanded(
@@ -259,43 +283,31 @@ class _FollowersListModalState extends State<FollowersListModal> {
                                       ],
                                     ),
                                   ),
-                                  TextButton(
-                                    onPressed: () {
-                                      setState(() {
-                                        follower['isFollowing'] = !follower['isFollowing'];
-                                      });
-                                    },
-                                    style: TextButton.styleFrom(
-                                      backgroundColor: follower['isFollowing']
-                                          ? Colors.grey[200]
-                                          : AppColors.primary,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 8,
+                                  if (follower['isFollowing'] == true)
+                                    TextButton(
+                                      onPressed: () => _unfollow(follower['id']),
+                                      style: TextButton.styleFrom(
+                                        backgroundColor: Colors.red[50],
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(20),
+                                        ),
                                       ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      follower['isFollowing'] ? 'Takip Ediliyor' : 'Takip Et',
-                                      style: TextStyle(
-                                        color: follower['isFollowing']
-                                            ? Colors.black87
-                                            : Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
+                                      child: const Text(
+                                        'Takipten Çıkar',
+                                        style: TextStyle(
+                                          color: Colors.red,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
                                     ),
-                                  ),
                                 ],
                               ),
                             ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                          );
+                        },
+                      ),
           ),
         ],
       ),
